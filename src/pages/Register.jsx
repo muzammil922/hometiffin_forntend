@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { User, Mail, Phone, Lock } from 'lucide-react'
+import { ChefHat } from 'lucide-react'
 
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import Input from '../components/ui/Input'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
+import api from '../services/api'
 
 // Zod Registration Schema
 const registerSchema = z.object({
@@ -18,11 +19,7 @@ const registerSchema = z.object({
   phone: z.string().regex(/^((\+92)|(0092)|(03))\d{9}$/, {
     message: 'Please enter a valid Pakistan mobile number (e.g. 03001234567)'
   }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
-  confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword']
+  password: z.string().min(6, { message: 'Password must be at least 6 characters' })
 })
 
 export default function Register() {
@@ -30,106 +27,146 @@ export default function Register() {
   const { login } = useAuthStore()
   const { addToast } = useToastStore()
 
+  const lastCheckoutEmail = localStorage.getItem('last_checkout_email') || ''
+  const accounts = JSON.parse(localStorage.getItem('hometiffin_accounts')) || {}
+  const guestInfo = accounts[lastCheckoutEmail.toLowerCase()] || {}
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(registerSchema)
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: lastCheckoutEmail,
+      name: guestInfo.name || '',
+      phone: guestInfo.phone || '',
+      password: ''
+    }
   })
 
-  const handleRegisterSubmit = (data) => {
-    // Simulated Registration & Auto-Login
-    const mockUser = {
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      subscription: null
+  const handleRegisterSubmit = async (data) => {
+    try {
+      const response = await api.post('/auth/register', {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        password: data.password
+      })
+      
+      const { user, token } = response.data
+      login(user, token)
+      addToast('Account created successfully!', 'success')
+      navigate('/dashboard')
+    } catch (error) {
+      const errMsg = error.response?.data?.error || 'Registration failed. Please try again.'
+      addToast(errMsg, 'error')
     }
-    const mockToken = 'jwt_mock_registered_token_123'
-    
-    login(mockUser, mockToken)
-    addToast('Account created successfully!', 'success')
-    navigate('/dashboard')
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <Card className="w-full max-w-md p-8 shadow-card border border-emerald-100">
-        <div className="text-center mb-8">
-          <Link to="/" className="text-2xl font-bold text-primary flex justify-center items-center gap-2 mb-2">
-            🍱 Home Tiffin
-          </Link>
-          <h2 className="text-xl font-bold text-text-dark">Create Account</h2>
-          <p className="text-xs text-gray-500 mt-1">Register to start tiffin meal plans in Karachi.</p>
+    <div className="min-h-screen bg-[#F4F6F5] bg-gradient-to-tr from-accent/20 via-background to-emerald-50/30 flex items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+      
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-12px); }
+        }
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* Floating background blur spheres */}
+      <div className="bg-primary/5 absolute top-10 left-10 w-72 h-72 rounded-full blur-3xl animate-pulse" />
+      <div className="bg-accent/15 absolute bottom-10 right-10 w-96 h-96 rounded-full blur-3xl" />
+      <div className="bg-emerald-200/10 absolute top-1/2 left-1/3 w-80 h-80 rounded-full blur-3xl" />
+      
+      {/* ── MAIN GLASS CONTAINER ── */}
+      <div className="bg-white/25 backdrop-blur-xl border border-white/40 rounded-[32px] shadow-2xl p-6 sm:p-8 md:p-10 max-w-5xl w-full flex flex-col md:flex-row items-center gap-8 md:gap-10 min-h-[580px] z-10">
+        
+        {/* ── LEFT SIDE: Image Panel (Desktop Only) ── */}
+        <div className="hidden md:flex md:w-[54%] flex-col items-center justify-center relative select-none">
+          {/* Decorative floating leaves */}
+          <div className="absolute top-6 right-12 w-6 h-6 text-emerald-400 opacity-60 animate-bounce" style={{ animationDelay: '0.3s' }}>🍃</div>
+          <div className="absolute bottom-12 left-8 w-8 h-8 text-emerald-300 opacity-55 animate-bounce" style={{ animationDelay: '1.1s' }}>🍃</div>
+          <div className="absolute top-1/2 left-4 w-5 h-5 text-emerald-500 opacity-40 animate-pulse">🍃</div>
+          <div className="absolute bottom-8 right-16 w-6 h-6 text-emerald-400 opacity-50 animate-pulse" style={{ animationDelay: '0.7s' }}>🍃</div>
+          
+          {/* Main 3D Food Illustration (floating) */}
+          <img
+            src="/tiffin_3d.png"
+            alt="Premium Home Tiffin Meal"
+            className="w-full max-w-[380px] object-contain drop-shadow-2xl animate-float"
+          />
         </div>
 
-        <form onSubmit={handleSubmit(handleRegisterSubmit)} className="flex flex-col gap-4 text-left">
-          <div className="relative">
-            <User className="absolute left-3.5 top-[38px] w-4 h-4 text-gray-400" />
-            <Input
-              label="Full Name"
-              placeholder="e.g. Muzammil Khan"
-              error={errors.name}
-              {...register('name')}
-              className="pl-6"
-            />
+        {/* ── RIGHT SIDE: Form Card (Embedded) ── */}
+        <div className="w-full md:w-[46%] bg-white rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-5 text-left border border-emerald-50/50">
+          {/* Logo Header */}
+          <div className="flex items-center gap-1.5 text-primary text-xs font-black tracking-wider uppercase mb-1">
+            <ChefHat className="w-5 h-5 text-primary" />
+            <span>Home Tiffin</span>
           </div>
 
-          <div className="relative">
-            <Mail className="absolute left-3.5 top-[38px] w-4 h-4 text-gray-400" />
-            <Input
-              label="Email Address"
-              placeholder="you@example.com"
-              error={errors.email}
-              {...register('email')}
-              className="pl-6"
-            />
+          <div className="flex flex-col gap-1">
+            <h2 className="text-3xl font-black text-primary tracking-tight">Register</h2>
           </div>
 
-          <div className="relative">
-            <Phone className="absolute left-3.5 top-[38px] w-4 h-4 text-gray-400" />
-            <Input
-              label="Phone Number"
-              placeholder="e.g. 03001234567"
-              error={errors.phone}
-              {...register('phone')}
-              className="pl-6"
-            />
-          </div>
+          <form onSubmit={handleSubmit(handleRegisterSubmit)} className="flex flex-col gap-4">
+            <div>
+              <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5 block">Full Name</label>
+              <Input
+                placeholder="e.g. Muzammil Khan"
+                error={errors.name}
+                {...register('name')}
+                className="rounded-2xl border-emerald-100/80 focus:border-primary focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
 
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-[38px] w-4 h-4 text-gray-400" />
-            <Input
-              type="password"
-              label="Password"
-              placeholder="••••••••"
-              error={errors.password}
-              {...register('password')}
-              className="pl-6"
-            />
-          </div>
+            <div>
+              <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5 block">Email Address</label>
+              <Input
+                placeholder="you@example.com"
+                error={errors.email}
+                {...register('email')}
+                className="rounded-2xl border-emerald-100/80 focus:border-primary focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
 
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-[38px] w-4 h-4 text-gray-400" />
-            <Input
-              type="password"
-              label="Confirm Password"
-              placeholder="••••••••"
-              error={errors.confirmPassword}
-              {...register('confirmPassword')}
-              className="pl-6"
-            />
-          </div>
+            <div>
+              <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5 block">Phone Number</label>
+              <Input
+                placeholder="e.g. 03001234567"
+                error={errors.phone}
+                {...register('phone')}
+                className="rounded-2xl border-emerald-100/80 focus:border-primary focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
 
-          <Button type="submit" variant="primary" isLoading={isSubmitting} className="w-full mt-4">
-            Register Account
-          </Button>
-        </form>
+            <div>
+              <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-1.5 block">Password</label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                error={errors.password}
+                {...register('password')}
+                className="rounded-2xl border-emerald-100/80 focus:border-primary focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
 
-        <p className="text-center text-xs text-gray-500 mt-8">
-          Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-primary hover:underline">
-            Login here
-          </Link>
-        </p>
-      </Card>
+
+
+            <Button type="submit" variant="primary" isLoading={isSubmitting} className="w-full py-3.5 mt-2 rounded-2xl font-bold bg-primary text-white hover:bg-primary-dark transition-all">
+              Register Account
+            </Button>
+          </form>
+
+          <p className="text-center text-xs text-gray-500 mt-2 font-semibold">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary hover:underline font-extrabold">
+              Login here
+            </Link>
+          </p>
+        </div>
+
+      </div>
     </div>
   )
 }

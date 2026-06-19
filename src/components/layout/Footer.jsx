@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Phone, Mail } from 'lucide-react'
+import { Phone, Mail, ChefHat, Zap } from 'lucide-react'
 
 export default function Footer({ collapsible = false }) {
   const footerClasses = collapsible
@@ -12,10 +12,14 @@ export default function Footer({ collapsible = false }) {
       {collapsible && (
         <div className="flex items-center justify-between w-full max-w-7xl mx-auto h-9 opacity-100 group-hover/footer:opacity-0 group-hover/footer:pointer-events-none transition-opacity duration-300">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-black text-white">🍱 Home Tiffin</span>
+            <span className="text-sm font-black text-white flex items-center gap-1.5">
+              <ChefHat className="w-4 h-4 text-accent" />
+              Home Tiffin
+            </span>
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="text-[11px] font-semibold text-accent-light leading-none">
-              ⚡ Order fresh home-cooked tiffins! Hot, healthy, and hygienic meals delivered daily across Karachi.
+            <span className="text-[11px] font-semibold text-accent-light leading-none flex items-center gap-1">
+              <Zap className="w-3.5 h-3.5 text-accent shrink-0 fill-accent" />
+              Order fresh home-cooked tiffins! Hot, healthy, and hygienic meals delivered daily across Karachi.
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -34,8 +38,9 @@ export default function Footer({ collapsible = false }) {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Brand/Logo column */}
           <div className="flex flex-col gap-4">
-            <Link to="/" className="text-2xl font-bold tracking-tight text-white flex items-center">
-              🍱 Home Tiffin
+            <Link to="/" className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <ChefHat className="w-6 h-6 text-accent" />
+              Home Tiffin
             </Link>
             <p className="text-sm text-accent-light leading-relaxed">
               Ghar ka khana, aapke darwaze tak. Karachi's premium daily home-cooked meal and tiffin service.

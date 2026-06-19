@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { ChefHat } from 'lucide-react'
 
 export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
@@ -55,7 +56,7 @@ export default function PWAInstallBanner() {
   return (
     <div className="w-full bg-accent text-text-dark px-6 py-4 rounded-2xl border border-emerald-200/50 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
       <div className="flex items-center gap-3">
-        <span className="text-2xl">🍱</span>
+        <ChefHat className="w-8 h-8 text-primary shrink-0" />
         <div className="text-left">
           <p className="font-semibold text-sm md:text-base m-0">Install Home Tiffin App</p>
           <p className="text-xs text-emerald-800 m-0">

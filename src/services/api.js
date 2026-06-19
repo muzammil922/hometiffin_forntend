@@ -5,6 +5,7 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
+    'x-api-key': import.meta.env.VITE_WHATSAPP_MIDDLEWARE_KEY || 'ht_mw_super_secret_key_2026'
   }
 })
 

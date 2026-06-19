@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, ShoppingCart, User } from 'lucide-react'
+import { Menu, X, ShoppingCart, User, ChefHat } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useCartStore } from '../../store/cartStore'
 import Button from '../ui/Button'
@@ -31,8 +31,9 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo left */}
         <Link to="/" className="flex items-center gap-2 cursor-pointer">
-          <span className="text-2xl font-bold tracking-tight text-primary flex items-center">
-            🍱 Home Tiffin
+          <span className="text-2xl font-black tracking-tight text-primary flex items-center gap-2">
+            <ChefHat className="w-6 h-6 text-primary" />
+            Home Tiffin
           </span>
         </Link>
 
@@ -59,7 +60,7 @@ export default function Navbar() {
 
         {/* Buttons right (Desktop) */}
         <div className="hidden md:flex items-center gap-4">
-          <Link to="/menu" className="relative p-2 hover:bg-accent-light rounded-xl transition-all cursor-pointer">
+          <Link to="/cart" className="relative p-2 hover:bg-accent-light rounded-xl transition-all cursor-pointer">
             <ShoppingCart className="w-6 h-6 text-primary" />
             {getTotalItems() > 0 && (
               <span className="absolute -top-1 -right-1 bg-primary text-text-light text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
@@ -117,7 +118,7 @@ export default function Navbar() {
 
           <div className="flex flex-col gap-4">
             <Link
-              to="/menu"
+              to="/cart"
               onClick={() => setIsOpen(false)}
               className="flex items-center justify-between p-3 border border-accent rounded-2xl hover:bg-accent-light transition-all"
             >

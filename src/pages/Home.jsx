@@ -17,6 +17,7 @@ import PWAInstallBanner from '../components/shared/PWAInstallBanner'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import { useReviewStore } from '../store/reviewStore'
+import { useAuthStore } from '../store/authStore'
 
 // Zod Validation Schema for Order/Contact form
 const orderSchema = z.object({
@@ -73,6 +74,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { addItem } = useCartStore()
   const { addToast } = useToastStore()
+  const { isAuthenticated } = useAuthStore()
 
   // Customization modal states
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false)
@@ -327,7 +329,10 @@ export default function Home() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[10px] font-bold text-text-dark">🛵 Delivering in Karachi</span>
+              <span className="text-[10px] font-bold text-text-dark flex items-center gap-1.5">
+                <Bike className="w-3.5 h-3.5 text-primary" />
+                Delivering in Karachi
+              </span>
             </motion.div>
           </div>
         </div>
@@ -545,7 +550,17 @@ export default function Home() {
                   ))}
                 </ul>
               </div>
-              <Button variant={plan.recommended ? 'primary' : 'outline'} className="w-full mt-8" onClick={() => navigate('/menu')}>
+              <Button
+                variant={plan.recommended ? 'primary' : 'outline'}
+                className="w-full mt-8"
+                onClick={() => {
+                  if (plan.title === 'Daily Tiffin') {
+                    navigate('/menu');
+                  } else {
+                    navigate(isAuthenticated ? '/dashboard/subscription' : '/login?redirect=/dashboard/subscription');
+                  }
+                }}
+              >
                 Get Started
               </Button>
             </Card>

@@ -8,7 +8,11 @@ import {
   MapPin,
   Bell,
   LogOut,
-  User
+  User,
+  ChefHat,
+  MessageSquare,
+  Smartphone,
+  Users
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -17,14 +21,65 @@ export default function Sidebar({ children }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
 
-  const menuItems = [
-    { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
-    { name: 'Subscription', path: '/dashboard/subscription', icon: CalendarDays },
-    { name: 'Payments', path: '/dashboard/payments', icon: CreditCard },
-    { name: 'Live Tracking', path: '/dashboard/tracking', icon: MapPin },
-    { name: 'Notifications', path: '/dashboard/notifications', icon: Bell },
-  ]
+  const getMenuItems = () => {
+    if (user?.role === 'admin') {
+      return [
+        { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Manage Orders', path: '/dashboard/orders', icon: ShoppingBag },
+        { name: 'Manage Subscriptions', path: '/dashboard/subscriptions', icon: CalendarDays },
+        { name: 'Manage Users', path: '/dashboard/users', icon: Users },
+        { name: 'Manage Meals', path: '/dashboard/meals', icon: ChefHat },
+        { name: 'Payments Verification', path: '/dashboard/payments', icon: CreditCard },
+        { name: 'Message Templates', path: '/dashboard/templates', icon: MessageSquare },
+        { name: 'Evolution WhatsApp', path: '/dashboard/whatsapp', icon: Smartphone },
+        { name: 'Rider Accounts', path: '/dashboard/riders', icon: User },
+      ];
+    } else if (user?.role === 'management') {
+      const allowed = user?.allowedPages || [];
+      const items = [];
+      if (allowed.includes('Overview')) {
+        items.push({ name: 'Overview', path: '/dashboard', icon: LayoutDashboard });
+      }
+      if (allowed.includes('Manage Orders')) {
+        items.push({ name: 'Manage Orders', path: '/dashboard/orders', icon: ShoppingBag });
+      }
+      if (allowed.includes('Manage Subscriptions')) {
+        items.push({ name: 'Manage Subscriptions', path: '/dashboard/subscriptions', icon: CalendarDays });
+      }
+      if (allowed.includes('Manage Users')) {
+        items.push({ name: 'Manage Users', path: '/dashboard/users', icon: Users });
+      }
+      if (allowed.includes('Manage Meals')) {
+        items.push({ name: 'Manage Meals', path: '/dashboard/meals', icon: ChefHat });
+      }
+      if (allowed.includes('Payments Verification')) {
+        items.push({ name: 'Payments Verification', path: '/dashboard/payments', icon: CreditCard });
+      }
+      if (allowed.includes('Message Templates')) {
+        items.push({ name: 'Message Templates', path: '/dashboard/templates', icon: MessageSquare });
+      }
+      if (allowed.includes('Evolution WhatsApp')) {
+        items.push({ name: 'Evolution WhatsApp', path: '/dashboard/whatsapp', icon: Smartphone });
+      }
+      return items;
+    } else if (user?.role === 'rider') {
+      return [
+        { name: 'Overview (Deliveries)', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'GPS Coords Tracker', path: '/dashboard/tracking', icon: MapPin },
+      ];
+    } else {
+      return [
+        { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
+        { name: 'Subscription', path: '/dashboard/subscription', icon: CalendarDays },
+        { name: 'Payments', path: '/dashboard/payments', icon: CreditCard },
+        { name: 'Live Tracking', path: '/dashboard/tracking', icon: MapPin },
+        { name: 'Notifications', path: '/dashboard/notifications', icon: Bell },
+      ];
+    }
+  };
+
+  const menuItems = getMenuItems();
 
   const handleLogout = () => {
     logout()
@@ -34,12 +89,13 @@ export default function Sidebar({ children }) {
   const isActive = (path) => location.pathname === path
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="h-screen bg-background flex flex-col md:flex-row overflow-hidden">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-emerald-100 p-6 shadow-subtle min-h-screen sticky top-0">
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-emerald-100 p-6 shadow-subtle h-full shrink-0">
         <div className="mb-8 text-left">
-          <Link to="/" className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
-            🍱 Home Tiffin
+          <Link to="/" className="text-xl font-black tracking-tight text-primary flex items-center gap-2">
+            <ChefHat className="w-5 h-5 text-primary" />
+            Home Tiffin
           </Link>
           <span className="text-[10px] bg-accent px-2 py-0.5 rounded-full font-bold text-text-dark mt-2 inline-block">
             Dashboard
@@ -90,9 +146,10 @@ export default function Sidebar({ children }) {
       </aside>
 
       {/* Top Navigation Bar - Mobile */}
-      <div className="md:hidden w-full bg-white border-b border-emerald-100 px-6 py-4 flex items-center justify-between shadow-subtle">
-        <Link to="/" className="text-lg font-bold tracking-tight text-primary">
-          🍱 Home Tiffin
+      <div className="md:hidden w-full bg-white border-b border-emerald-100 px-6 py-4 flex items-center justify-between shadow-subtle shrink-0">
+        <Link to="/" className="text-lg font-black tracking-tight text-primary flex items-center gap-2">
+          <ChefHat className="w-5 h-5 text-primary" />
+          Home Tiffin
         </Link>
         <button
           onClick={handleLogout}
@@ -104,7 +161,7 @@ export default function Sidebar({ children }) {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-10 max-w-5xl mx-auto w-full pb-24 md:pb-10">
+      <main className="flex-1 p-6 md:p-10 pb-24 md:pb-10 w-full h-full overflow-y-auto">
         {children}
       </main>
 
