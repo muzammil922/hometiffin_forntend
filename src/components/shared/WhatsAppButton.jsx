@@ -1,7 +1,7 @@
 import React from 'react'
 
 export default function WhatsAppButton() {
-  const whatsappNumber = '923000000000' // Karachi standard mock support
+  const whatsappNumber = '923113840943' // Karachi standard support
   const defaultText = encodeURIComponent('Hi! I want to order some delicious home-cooked meals from Home Tiffin.')
   const waUrl = `https://wa.me/${whatsappNumber}?text=${defaultText}`
 

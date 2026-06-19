@@ -61,11 +61,11 @@ export default function Footer({ collapsible = false }) {
             <h4 className="text-base font-bold text-white mb-1">Contact Us</h4>
             <div className="flex items-center gap-2 text-sm text-accent-light">
               <Phone className="w-4 h-4" />
-              <span>+92 300 0000000</span>
+              <span>0311 3840943</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-accent-light">
               <Mail className="w-4 h-4" />
-              <span>info@hometiffin.pk</span>
+              <span>team.mydashy.pro@gmail.com</span>
             </div>
             <span className="text-xs text-accent-light/75"> Karachi delivery coverage zones.</span>
           </div>

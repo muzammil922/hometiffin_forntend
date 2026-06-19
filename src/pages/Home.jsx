@@ -158,7 +158,7 @@ export default function Home() {
     reset()
     // Open WhatsApp pre-filled text
     const message = `Hi, I would like to place an order:\n\n*Name*: ${data.fullName}\n*Phone*: ${data.phone}\n*Plan*: ${data.mealSelection}\n*Date*: ${data.deliveryDate}\n*Address*: ${data.address}\n*Notes*: ${data.notes || 'None'}`
-    window.open(`https://wa.me/923000000000?text=${encodeURIComponent(message)}`, '_blank')
+    window.open(`https://wa.me/923113840943?text=${encodeURIComponent(message)}`, '_blank')
   }
 
   const filteredMeals = activeTab === 'All'
@@ -246,7 +246,7 @@ export default function Home() {
             >
               <Button
                 variant="secondary"
-                onClick={() => window.open('https://wa.me/923000000000?text=Hi!%20I%20want%20to%20order%20some%20delicious%20tiffin%20meals.', '_blank')}
+                onClick={() => window.open('https://wa.me/923113840943?text=Hi!%20I%20want%20to%20order%20some%20delicious%20tiffin%20meals.', '_blank')}
                 className="flex items-center gap-2 w-full sm:w-auto justify-center"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
