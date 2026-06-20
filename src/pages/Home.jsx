@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -88,7 +88,15 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('All')
 
   // Testimonials Zustand Store hook
-  const { testimonials, addReview } = useReviewStore()
+  const { testimonials, addReview, fetchReviews, initSocket, disconnectSocket } = useReviewStore()
+
+  useEffect(() => {
+    fetchReviews()
+    initSocket()
+    return () => {
+      disconnectSocket()
+    }
+  }, [fetchReviews, initSocket, disconnectSocket])
 
   // Review modal states
   const [isReviewOpen, setIsReviewOpen] = useState(false)
@@ -99,7 +107,7 @@ export default function Home() {
   const [reviewRole, setReviewRole] = useState('Weekly Subscriber')
   const [reviewOrders, setReviewOrders] = useState(1)
 
-  const handleReviewSubmit = (e) => {
+  const handleReviewSubmit = async (e) => {
     e.preventDefault()
     if (!reviewName.trim() || !reviewText.trim()) return
 
@@ -112,16 +120,21 @@ export default function Home() {
       rating: reviewRating
     }
 
-    addReview(newReview)
-    setIsReviewOpen(false)
-
-    // Reset Form
-    setReviewName('')
-    setReviewArea('')
-    setReviewText('')
-    setReviewRating(5)
-    setReviewRole('Weekly Subscriber')
-    setReviewOrders(1)
+    try {
+      await addReview(newReview)
+      addToast('Review submitted successfully! Thank you!', 'success')
+      setIsReviewOpen(false)
+      
+      // Reset Form
+      setReviewName('')
+      setReviewArea('')
+      setReviewText('')
+      setReviewRating(5)
+      setReviewRole('Weekly Subscriber')
+      setReviewOrders(1)
+    } catch (err) {
+      addToast('Failed to submit review. Please try again.', 'error')
+    }
   }
 
   // Form setup
@@ -338,6 +351,92 @@ export default function Home() {
         </div>
       </section>
 
+      {/* 1.5. MENU HIGHLIGHTS SLIDER */}
+      <section className="py-20 px-6 bg-gradient-to-b from-background/30 to-white border-t border-emerald-50 text-center relative overflow-hidden">
+        {/* Soft Background Decorative Blur Circles */}
+        <div className="absolute top-1/2 left-0 -translate-y-1/2 w-72 h-72 rounded-full bg-accent/20 blur-3xl pointer-events-none" />
+        <div className="absolute top-1/3 right-0 w-80 h-80 rounded-full bg-emerald-50 blur-3xl pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <span className="text-xs font-extrabold text-primary uppercase tracking-widest bg-accent/35 px-4 py-1.5 rounded-full mb-4 inline-block">
+            Menu Highlights
+          </span>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-primary mb-3">
+            Our Popular Dishes
+          </h2>
+          <p className="text-sm text-gray-500 max-w-xl mx-auto mb-10 leading-relaxed">
+            Take a look at our daily crowd favorites, prepared with pure hygiene and fresh home-cooked taste.
+          </p>
+
+          <div className="flex gap-8 overflow-x-auto snap-x pb-8 pt-16 text-left scrollbar-none w-full scroll-smooth">
+            {MOCK_MEALS.map((meal) => (
+              <Card
+                key={'slider-' + meal.id}
+                className="relative flex-none w-[280px] md:w-[320px] flex flex-col justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md hover:shadow-xl transition-all duration-300 snap-center"
+              >
+                {/* Floating Centered Food Image */}
+                <img
+                  src={meal.image || '/cutout_biryani.png'}
+                  alt={meal.name}
+                  className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 object-contain mix-blend-multiply z-20 pointer-events-none"
+                />
+
+                <div>
+                  {/* Top Row: Category Badge & Customize Icon */}
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="bg-accent/25 text-primary px-2.5 py-1 rounded-xl text-[10px] font-extrabold tracking-wider uppercase">
+                      {meal.category}
+                    </span>
+                    <button
+                      onClick={() => handleCustomizeClick(meal)}
+                      className="p-1.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-accent/20 hover:text-primary transition-all border border-gray-100 shadow-sm cursor-pointer"
+                      title="Customize portion & addons"
+                    >
+                      <Sliders className="w-4 h-4 stroke-[2.5]" />
+                    </button>
+                  </div>
+
+                  {/* Meal Title */}
+                  <h3 className="text-base font-bold text-text-dark mb-1 leading-snug">{meal.name}</h3>
+
+                  {/* Tags Row */}
+                  <div className="flex flex-wrap gap-1.5 mt-3.5 mb-3">
+                    {(meal.tags || ['Homestyle', 'Fresh', 'Popular']).map((tag) => (
+                      <span key={tag} className="bg-background text-primary border border-emerald-200/40 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+                    {meal.description}{' '}
+                    <span className="text-primary font-bold hover:underline cursor-pointer">See more</span>
+                  </p>
+                </div>
+
+                {/* Footer Row: Price, Add to Cart */}
+                <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
+                  <div className="text-left">
+                    <span className="text-[10px] font-semibold text-gray-400 block leading-none mb-1">Price</span>
+                    <span className="text-base font-extrabold text-text-dark">Rs. {meal.price}</span>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleQuickAdd(meal)}
+                    className="rounded-xl px-5 py-2 font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer"
+                  >
+                    Add to Cart
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* 2. HOW IT WORKS */}
       <section className="py-20 px-6 max-w-7xl mx-auto text-center relative overflow-hidden">
         <h2 className="text-4xl font-bold mb-4 text-primary">How It Works</h2>
@@ -521,9 +620,9 @@ export default function Home() {
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { title: 'Daily Tiffin', price: isSubscription ? '250 / day' : '280 / meal', desc: 'Single tiffin box delivered hot at your workplace or residency.', features: ['1 Choice of Main dish', '2 handmade fresh rotis', 'Salad & Raita included', 'Cancel/pause anytime'] },
             { title: 'Weekly Tiffin Plan', price: isSubscription ? '1,600 / week' : '1,800 / plan', desc: 'Six days of healthy home tiffins from Monday to Saturday.', recommended: true, features: ['6 tiffins per week', 'Weekly varying menu list', 'Special dessert on Saturdays', 'Pause/Resume anytime'] },
-            { title: 'Monthly Tiffin Plan', price: isSubscription ? '6,200 / month' : '7,000 / plan', desc: 'Premium monthly corporate tiffin meal plan package.', features: ['24 fresh tiffin packages', 'Customize portion size daily', 'Zero delivery fee', 'Premium customer portal access'] }
+            { title: 'Monthly Tiffin Plan', price: isSubscription ? '6,200 / month' : '7,000 / plan', desc: 'Premium monthly corporate tiffin meal plan package.', features: ['24 fresh tiffin packages', 'Customize portion size daily', 'Zero delivery fee', 'Premium customer portal access'] },
+            { title: 'Company Subscription', price: 'Custom', desc: 'Flexible customizable meal plans tailored for your entire workforce.', features: ['Subscribe for multiple workers', 'Office delivery hotspots', 'Hassle-free calendar scheduling', 'Dedicated corporate manager'] }
           ].map((plan) => (
             <Card
               key={plan.title}
@@ -537,13 +636,17 @@ export default function Home() {
               )}
               <div>
                 <h3 className="text-xl font-bold text-text-dark mb-2">{plan.title}</h3>
-                <p className="text-xs text-gray-500 mb-6">{plan.desc}</p>
+                <p className="text-xs text-gray-550 mb-6">{plan.desc}</p>
                 <div className="mb-6">
-                  <span className="text-3xl font-bold text-primary">PKR {plan.price}</span>
+                  {plan.title === 'Company Subscription' ? (
+                    <span className="text-2xl font-bold text-primary">Custom Pricing</span>
+                  ) : (
+                    <span className="text-3xl font-bold text-primary">PKR {plan.price}</span>
+                  )}
                 </div>
                 <ul className="flex flex-col gap-3">
                   {plan.features.map((feat) => (
-                    <li key={feat} className="flex items-center gap-2 text-sm text-gray-600">
+                    <li key={feat} className="flex items-center gap-2 text-sm text-gray-650">
                       <Check className="w-4 h-4 text-primary shrink-0" />
                       <span>{feat}</span>
                     </li>
@@ -554,11 +657,7 @@ export default function Home() {
                 variant={plan.recommended ? 'primary' : 'outline'}
                 className="w-full mt-8"
                 onClick={() => {
-                  if (plan.title === 'Daily Tiffin') {
-                    navigate('/menu');
-                  } else {
-                    navigate(isAuthenticated ? '/dashboard/subscription' : '/login?redirect=/dashboard/subscription');
-                  }
+                  navigate(isAuthenticated ? '/dashboard/subscription' : '/login?redirect=/dashboard/subscription');
                 }}
               >
                 Get Started

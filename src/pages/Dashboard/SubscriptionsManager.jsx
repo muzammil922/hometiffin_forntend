@@ -356,7 +356,7 @@ export default function SubscriptionsManager() {
     try {
       setLoading(true)
       const matchingPlan = plans.find(p => p.planType === sub.planType)
-      const mealsQuota = matchingPlan ? matchingPlan.totalMeals : (sub.planType === 'weekly' ? 7 : 30)
+      const mealsQuota = matchingPlan ? matchingPlan.totalMeals : (sub.planType === 'weekly' ? 6 : 24)
 
       await api.put(`/admin/subscriptions/${sub.id}`, {
         status: 'active',
@@ -553,7 +553,7 @@ export default function SubscriptionsManager() {
               <div className="flex flex-col gap-4">
                 {filteredSubs.map((sub) => {
                   const matchingPlan = plans.find(p => p.planType === sub.planType)
-                  const totalMeals = matchingPlan ? matchingPlan.totalMeals : (sub.planType === 'weekly' ? 7 : 30)
+                  const totalMeals = matchingPlan ? matchingPlan.totalMeals : (sub.planType === 'weekly' ? 6 : 24)
                   const mealsSent = Math.max(0, totalMeals - sub.mealsRemaining)
 
                   return (
@@ -740,7 +740,7 @@ export default function SubscriptionsManager() {
                           type="number"
                           value={plan.price}
                           onChange={(e) => handlePlanChange(plan.id, 'price', e.target.value)}
-                          placeholder="e.g. 3500"
+                          placeholder="e.g. 1800"
                           className="w-full font-semibold"
                         />
                       </div>
@@ -762,7 +762,7 @@ export default function SubscriptionsManager() {
                           type="number"
                           value={plan.totalMeals}
                           onChange={(e) => handlePlanChange(plan.id, 'totalMeals', e.target.value)}
-                          placeholder="e.g. 7"
+                          placeholder="e.g. 6"
                           className="w-full font-semibold"
                         />
                       </div>
@@ -954,7 +954,7 @@ export default function SubscriptionsManager() {
       >
         {selectedSub && (() => {
           const selectedSubMatchingPlan = plans.find(p => p.planType === selectedSub.planType)
-          const selectedSubTotalMeals = selectedSubMatchingPlan ? selectedSubMatchingPlan.totalMeals : (selectedSub.planType === 'weekly' ? 7 : 30)
+          const selectedSubTotalMeals = selectedSubMatchingPlan ? selectedSubMatchingPlan.totalMeals : (selectedSub.planType === 'weekly' ? 6 : 24)
           const selectedSubMealsSent = Math.max(0, selectedSubTotalMeals - selectedSub.mealsRemaining)
 
           return (

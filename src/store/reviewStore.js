@@ -1,33 +1,79 @@
 import { create } from 'zustand'
+import io from 'socket.io-client'
+import api from '../services/api'
+import { useAuthStore } from './authStore'
 
-export const useReviewStore = create((set) => ({
-  testimonials: [
-    { 
-      name: 'Kashif Ali', 
-      area: 'Gulshan, Karachi', 
-      role: 'Weekly Subscriber',
-      orders: 24,
-      review: 'The biryani tastes exactly like home. Extremely hygienic packing, non-greasy food, and very prompt delivery.',
-      rating: 5
-    },
-    { 
-      name: 'Ayesha Khan', 
-      area: 'Clifton, Karachi', 
-      role: 'Office Lunch Subscriber',
-      orders: 18,
-      review: 'Subscribed to the monthly tiffin plan for my office lunches. Absolutely convenient, delicious, and way cleaner than restaurant food.',
-      rating: 5
-    },
-    { 
-      name: 'Zohaib Ahmed', 
-      area: 'DHA, Karachi', 
-      role: 'Daily Dinner Plan',
-      orders: 31,
-      review: 'Real homemade flavors. The portion size of the Beef Biryani and Karahi is more than enough for dinner. Highly recommended!',
-      rating: 5
+let socket = null
+
+export const useReviewStore = create((set, get) => ({
+  testimonials: [],
+  loading: false,
+  socketConnected: false,
+  
+  fetchReviews: async () => {
+    try {
+      set({ loading: true })
+      const res = await api.get('/reviews')
+      set({ testimonials: res.data, loading: false })
+    } catch (err) {
+      console.error('Failed to fetch reviews:', err)
+      set({ loading: false })
     }
-  ],
-  addReview: (review) => set((state) => ({
-    testimonials: [review, ...state.testimonials]
-  }))
+  },
+  
+  addReview: async (review) => {
+    try {
+      const res = await api.post('/reviews', review)
+      // Prevent duplicate rendering by checking if already present in state
+      set((state) => {
+        const exists = state.testimonials.some((t) => t.id === res.data.id)
+        if (exists) return {}
+        return { testimonials: [res.data, ...state.testimonials] }
+      })
+      return res.data
+    } catch (err) {
+      console.error('Failed to add review:', err)
+      throw err
+    }
+  },
+
+  initSocket: () => {
+    if (socket) return
+
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+    const token = useAuthStore.getState().token
+
+    socket = io(socketUrl, {
+      query: token ? { token } : {},
+      transports: ['websocket', 'polling'],
+      autoConnect: true
+    })
+
+    socket.on('connect', () => {
+      console.log('Reviews socket connected')
+      set({ socketConnected: true })
+    })
+
+    socket.on('review:new', (newReview) => {
+      console.log('Received real-time review broadcast:', newReview)
+      set((state) => {
+        const exists = state.testimonials.some((t) => t.id === newReview.id)
+        if (exists) return {}
+        return { testimonials: [newReview, ...state.testimonials] }
+      })
+    })
+
+    socket.on('disconnect', () => {
+      console.log('Reviews socket disconnected')
+      set({ socketConnected: false })
+    })
+  },
+
+  disconnectSocket: () => {
+    if (socket) {
+      socket.disconnect()
+      socket = null
+      set({ socketConnected: false })
+    }
+  }
 }))

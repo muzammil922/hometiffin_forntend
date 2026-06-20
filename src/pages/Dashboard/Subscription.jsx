@@ -8,7 +8,7 @@ import Modal from '../../components/ui/Modal'
 import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
 import api from '../../services/api'
-import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck } from 'lucide-react'
+import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck, Check, Building2, User } from 'lucide-react'
 
 export default function Subscription() {
   const { addToast } = useToastStore()
@@ -102,8 +102,8 @@ export default function Subscription() {
       console.error('Failed to load subscription plans:', err)
       addToast('Failed to load subscription plans. Using defaults.', 'error')
       setPlans([
-        { id: 'weekly', planType: 'weekly', price: 3500, totalMeals: 7, validityDays: 7 },
-        { id: 'monthly', planType: 'monthly', price: 14000, totalMeals: 30, validityDays: 30 }
+        { id: 'weekly', planType: 'weekly', price: 1800, totalMeals: 6, validityDays: 7 },
+        { id: 'monthly', planType: 'monthly', price: 7000, totalMeals: 24, validityDays: 30 }
       ])
     } finally {
       setPlansLoading(false)
@@ -363,9 +363,9 @@ export default function Subscription() {
   // ── PURCHASE SUBSCRIPTION STATE ──
   if (purchasePlan) {
     const selectedPlanConfig = plans.find(p => p.planType === purchasePlan) || {
-      price: purchasePlan === 'weekly' ? 3500 : 14000,
+      price: purchasePlan === 'weekly' ? 1800 : 7000,
       discount: 0,
-      totalMeals: purchasePlan === 'weekly' ? 7 : 30,
+      totalMeals: purchasePlan === 'weekly' ? 6 : 24,
       validityDays: purchasePlan === 'weekly' ? 7 : 30
     }
     const discountAmount = selectedPlanConfig.discount || 0
@@ -876,7 +876,6 @@ export default function Subscription() {
                 </Button>
               </div>
             </Card>
-
           </div>
         </form>
       </div>
@@ -885,80 +884,149 @@ export default function Subscription() {
 
   // ── NO SUBSCRIPTION STATE ──
   if (!subscription) {
+    const displayPlans = [
+      {
+        planType: 'weekly',
+        title: 'Weekly Tiffin Plan',
+        price: plans.find(p => p.planType === 'weekly')?.price || 1800,
+        totalMeals: plans.find(p => p.planType === 'weekly')?.totalMeals || 6,
+        validityDays: plans.find(p => p.planType === 'weekly')?.validityDays || 7,
+        desc: 'Six days of healthy home tiffins from Monday to Saturday.',
+        recommended: true,
+        features: [
+          '6 tiffins per week',
+          'Weekly varying menu list',
+          'Special dessert on Saturdays',
+          'Pause/Resume anytime'
+        ]
+      },
+      {
+        planType: 'monthly',
+        title: 'Monthly Tiffin Plan',
+        price: plans.find(p => p.planType === 'monthly')?.price || 7000,
+        totalMeals: plans.find(p => p.planType === 'monthly')?.totalMeals || 24,
+        validityDays: plans.find(p => p.planType === 'monthly')?.validityDays || 30,
+        desc: 'Premium monthly corporate tiffin meal plan package.',
+        recommended: false,
+        features: [
+          '24 fresh tiffin packages',
+          'Customize portion size daily',
+          'Zero delivery fee',
+          'Premium customer portal access'
+        ]
+      },
+      {
+        planType: 'company',
+        title: 'Company Subscription',
+        price: null,
+        desc: 'Flexible and customizable corporate meal plans for your entire office or workplace team.',
+        recommended: false,
+        features: [
+          'Subscribe on behalf of multiple workers',
+          'Delivered hot to your office address',
+          'Dedicated support manager coordinator',
+          'Hassle-free custom menu setup'
+        ]
+      }
+    ]
+
     return (
-      <div className="flex flex-col gap-8 text-left w-full">
+      <div className="flex flex-col gap-8 text-left w-full max-w-6xl mx-auto px-4 py-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-dark">My Subscription</h1>
-          <p className="text-sm text-gray-500">Choose a recurring plan and get fresh tiffins delivered daily.</p>
+          <h1 className="text-2xl font-bold text-text-dark">Tiffin Programs</h1>
+          <p className="text-sm text-gray-500 mt-1">Choose a recurring plan and get fresh tiffins delivered daily.</p>
         </div>
 
         {/* Pricing Cards Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full items-stretch">
           {plansLoading ? (
-            <div className="col-span-2 flex justify-center py-12">
+            <div className="col-span-3 flex justify-center py-12">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
           ) : (
-            plans.map(plan => {
+            displayPlans.map(plan => {
               const isWeekly = plan.planType === 'weekly'
+              const isMonthly = plan.planType === 'monthly'
+              const isCompanyPlan = plan.planType === 'company'
+
               return (
-                <Card key={plan.id} className="flex flex-col p-8 gap-5 border border-emerald-100 bg-white justify-between relative overflow-hidden" hoverable={true}>
-                  <div className={`absolute top-0 right-0 ${isWeekly ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-600'} text-[10px] font-extrabold px-4 py-1.5 rounded-bl-2xl uppercase tracking-wider`}>
-                    {isWeekly ? 'Popular' : 'Best Value'}
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <span className={`text-[10px] ${isWeekly ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-sky-50 text-sky-800 border border-sky-100'} font-bold px-3 py-1 rounded-full w-fit uppercase tracking-wider`}>
-                      {isWeekly ? 'Weekly Plan' : 'Monthly Plan'}
-                    </span>
-                    <div className="flex flex-col gap-1 mt-2 text-left">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-3xl font-black text-text-dark">
-                          PKR {Math.max(0, plan.price - (plan.discount || 0)).toLocaleString()}
-                        </span>
-                        <span className="text-xs text-gray-400 font-semibold">/ {plan.validityDays} Days</span>
-                      </div>
-                      {plan.discount > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-gray-450 line-through">
-                            PKR {plan.price.toLocaleString()}
-                          </span>
-                          <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-150">
-                            PKR {plan.discount.toLocaleString()} OFF
-                          </span>
-                        </div>
-                      )}
+                <Card
+                  key={plan.planType}
+                  className={`flex flex-col p-8 gap-5 border bg-white justify-between relative overflow-hidden rounded-3xl ${
+                    plan.recommended ? 'border-primary ring-2 ring-primary/25 bg-emerald-50/5' : 'border-emerald-100'
+                  }`}
+                  hoverable={true}
+                >
+                  {plan.recommended && (
+                    <div className="absolute top-0 right-0 bg-[#046a38] text-white text-[9px] font-black uppercase tracking-widest py-1.5 px-4 rounded-bl-2xl">
+                      BEST VALUE
                     </div>
-                    <p className="text-xs text-gray-500 mt-2 font-medium leading-relaxed">
-                      {isWeekly 
-                        ? 'Perfect for trial or busy weeks. Enjoy fresh organic lunches or dinners delivered directly to your doorstep.'
-                        : 'Save big with our monthly subscription. Ideal for working professionals, students, and families looking for clean home food.'
-                      }
+                  )}
+
+                  <div className="flex flex-col gap-4 text-left">
+                    <span className={`text-[10px] font-black px-3.5 py-1 rounded-full w-fit uppercase tracking-wider ${
+                      isWeekly
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-100'
+                        : isMonthly
+                        ? 'bg-sky-50 text-sky-800 border border-sky-100'
+                        : 'bg-amber-50 text-amber-800 border border-amber-100'
+                    }`}>
+                      {plan.title}
+                    </span>
+
+                    <div className="flex flex-col gap-1 mt-2">
+                      <div className="flex items-baseline gap-1.5">
+                        {isCompanyPlan ? (
+                          <span className="text-2xl font-black text-text-dark">Corporate Pricing</span>
+                        ) : (
+                          <>
+                            <span className="text-3xl font-black text-primary">
+                              PKR {plan.price.toLocaleString()}
+                            </span>
+                            <span className="text-xs text-gray-400 font-semibold">/ plan</span>
+                          </>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-semibold">
+                        {isWeekly ? '6 meals • 7 Days validity' : isMonthly ? '24 meals • 30 Days validity' : 'Tailored for teams'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-550 font-medium leading-relaxed min-h-[40px]">
+                      {plan.desc}
                     </p>
-                    <ul className="flex flex-col gap-2.5 mt-4 text-xs font-semibold text-gray-650">
-                      <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> {plan.totalMeals} Fresh Tiffin Meals</li>
-                      {isWeekly ? (
-                        <>
-                          <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Custom slot choice (Lunch/Dinner)</li>
-                          <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Roti, Salads, and Raita included</li>
-                          <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Pause/Resume anytime</li>
-                        </>
-                      ) : (
-                        <>
-                          <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Up to 25% savings vs daily orders</li>
-                          <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Custom slot choice (Lunch/Dinner)</li>
-                          <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Pause/Resume anytime</li>
-                        </>
-                      )}
+
+                    <div className="border-t border-gray-100 my-1" />
+
+                    <ul className="flex flex-col gap-2.5 text-xs font-semibold text-gray-650">
+                      {plan.features.map(feat => (
+                        <li key={feat} className="flex items-start gap-2">
+                          <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                          <span className="text-gray-600 leading-normal">{feat}</span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
 
                   <Button
-                    variant="primary"
-                    onClick={() => setPurchasePlan(plan.planType)}
-                    className={`w-full rounded-xl py-3.5 font-bold mt-6 flex items-center justify-center gap-1.5 ${!isWeekly ? 'bg-text-dark text-white hover:bg-black' : ''}`}
+                    variant={plan.recommended ? 'primary' : 'outline'}
+                    onClick={() => {
+                      if (isCompanyPlan) {
+                        setIsCompany(true)
+                        setPurchasePlan('monthly')
+                      } else {
+                        setIsCompany(false)
+                        setPurchasePlan(plan.planType)
+                      }
+                    }}
+                    className={`w-full rounded-xl py-3.5 font-bold mt-4 flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider ${
+                      plan.recommended
+                        ? 'bg-[#046a38] text-white hover:bg-[#03522c] border-none'
+                        : 'border-2 border-[#046a38] text-[#046a38] hover:bg-emerald-50/10'
+                    }`}
                   >
-                    <Utensils className="w-4 h-4" />
-                    Subscribe {isWeekly ? 'Weekly' : 'Monthly'}
+                    {isCompanyPlan ? <Building2 className="w-4 h-4" /> : <Utensils className="w-4 h-4" />}
+                    {isCompanyPlan ? 'Configure Corporate' : 'Get Started'}
                   </Button>
                 </Card>
               )
@@ -971,9 +1039,11 @@ export default function Subscription() {
 
   // ── ACTIVE / PAUSED SUBSCRIPTION STATE ──
   const isActive = subscription.status === 'active'
-  const planLabel = subscription.planType === 'weekly' ? 'Weekly Tiffin Plan' : 'Monthly Tiffin Plan'
+  const planLabel = subscription.isCompany
+    ? `${subscription.companyName} Corporate Plan`
+    : (subscription.planType === 'weekly' ? 'Weekly Tiffin Plan' : 'Monthly Tiffin Plan')
   const matchingPlan = plans.find(p => p.planType === subscription.planType)
-  const totalMeals = matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 7 : 30)
+  const totalMeals = matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24)
   const usedMeals = Math.max(0, totalMeals - subscription.mealsRemaining)
   const progressPercent = totalMeals > 0 ? Math.round((usedMeals / totalMeals) * 100) : 0
   const renewalDate = subscription.endDate ? new Date(subscription.endDate).toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'
@@ -1033,15 +1103,44 @@ export default function Subscription() {
             )}
           </div>
         </div>
+        {subscription.isCompany && (
+          <div className="mt-4 p-4.5 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-bold text-text-dark">Corporate Subscription Address</p>
+                <p className="text-[11px] text-gray-500 font-semibold mt-0.5">
+                  Delivering to: <span className="font-bold text-primary">{subscription.companyAddress}</span>
+                </p>
+              </div>
+            </div>
+            <div className="text-left sm:text-right shrink-0">
+              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Today's Delivery Quote</span>
+              <span className="text-base font-black text-emerald-700">{subscription.workerCount} Fresh Tiffin Boxes</span>
+            </div>
+          </div>
+        )}
 
         {/* Meals Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6">
-          {[
-            { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Weekly' : 'Monthly' },
-            { label: 'Total Meals', value: totalMeals },
-            { label: 'Meals Used', value: usedMeals },
-            { label: 'Meals Left', value: subscription.mealsRemaining },
-          ].map((stat) => (
+        <div className={`grid gap-4 pt-6 ${subscription.isCompany ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+          {(subscription.isCompany 
+            ? [
+                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Corporate Weekly' : 'Corporate Monthly' },
+                { label: 'Subscribed Employees', value: `${subscription.workerCount} Employees` },
+                { label: 'Daily Tiffins Today', value: `${subscription.workerCount} Tiffins` },
+                { label: 'Total Meals Quota', value: totalMeals * subscription.workerCount },
+                { label: 'Total Meals Delivered', value: usedMeals * subscription.workerCount },
+                { label: 'Total Meals Left', value: subscription.mealsRemaining * subscription.workerCount },
+              ]
+            : [
+                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Weekly' : 'Monthly' },
+                { label: 'Total Meals', value: totalMeals },
+                { label: 'Meals Used', value: usedMeals },
+                { label: 'Meals Left', value: subscription.mealsRemaining },
+              ]
+          ).map((stat) => (
             <div key={stat.label} className="bg-background rounded-2xl p-4 border border-emerald-50 text-center">
               <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">{stat.label}</p>
               <p className="text-xl font-black text-text-dark mt-1">{stat.value}</p>
@@ -1053,7 +1152,12 @@ export default function Subscription() {
         <div className="pt-6">
           <div className="flex justify-between items-center text-xs font-bold mb-2">
             <span className="text-text-dark">Meal Completion Progress</span>
-            <span className="text-primary">{usedMeals} / {totalMeals} Meals Received</span>
+            <span className="text-primary">
+              {subscription.isCompany 
+                ? `${usedMeals * subscription.workerCount} / ${totalMeals * subscription.workerCount} Meals Received` 
+                : `${usedMeals} / ${totalMeals} Meals Received`
+              }
+            </span>
           </div>
           <div className="w-full bg-gray-100 h-3.5 rounded-full overflow-hidden border border-emerald-50">
             <div
@@ -1062,7 +1166,10 @@ export default function Subscription() {
             />
           </div>
           <p className="text-[10px] text-gray-400 font-semibold mt-2">
-            {subscription.mealsRemaining} meals remaining in your {planLabel}.
+            {subscription.isCompany 
+              ? `${subscription.mealsRemaining * subscription.workerCount} total meals (${subscription.mealsRemaining} days remaining) in your Corporate Plan.` 
+              : `${subscription.mealsRemaining} meals remaining in your ${planLabel}.`
+            }
           </p>
         </div>
       </Card>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Star, MessageSquare, Plus, ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -7,9 +7,19 @@ import Footer from '../components/layout/Footer'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { useReviewStore } from '../store/reviewStore'
+import { useToastStore } from '../store/toastStore'
 
 export default function Reviews() {
-  const { testimonials, addReview } = useReviewStore()
+  const { testimonials, addReview, fetchReviews, initSocket, disconnectSocket } = useReviewStore()
+  const { addToast } = useToastStore()
+
+  useEffect(() => {
+    fetchReviews()
+    initSocket()
+    return () => {
+      disconnectSocket()
+    }
+  }, [fetchReviews, initSocket, disconnectSocket])
 
   // Review modal states
   const [isReviewOpen, setIsReviewOpen] = useState(false)
@@ -20,7 +30,7 @@ export default function Reviews() {
   const [reviewRole, setReviewRole] = useState('Weekly Subscriber')
   const [reviewOrders, setReviewOrders] = useState(1)
 
-  const handleReviewSubmit = (e) => {
+  const handleReviewSubmit = async (e) => {
     e.preventDefault()
     if (!reviewName.trim() || !reviewText.trim()) return
 
@@ -33,16 +43,21 @@ export default function Reviews() {
       rating: reviewRating
     }
 
-    addReview(newReview)
-    setIsReviewOpen(false)
-
-    // Reset Form
-    setReviewName('')
-    setReviewArea('')
-    setReviewText('')
-    setReviewRating(5)
-    setReviewRole('Weekly Subscriber')
-    setReviewOrders(1)
+    try {
+      await addReview(newReview)
+      addToast('Review submitted successfully! Thank you!', 'success')
+      setIsReviewOpen(false)
+      
+      // Reset Form
+      setReviewName('')
+      setReviewArea('')
+      setReviewText('')
+      setReviewRating(5)
+      setReviewRole('Weekly Subscriber')
+      setReviewOrders(1)
+    } catch (err) {
+      addToast('Failed to submit review. Please try again.', 'error')
+    }
   }
 
   // Calculate rating stats
