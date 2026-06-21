@@ -11,18 +11,18 @@ export default function Footer({ collapsible = false }) {
     <footer className={footerClasses}>
       {collapsible && (
         <div className="flex items-center justify-between w-full max-w-7xl mx-auto h-9 opacity-100 group-hover/footer:opacity-0 group-hover/footer:pointer-events-none transition-opacity duration-300">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-black text-white flex items-center gap-1.5">
-              <ChefHat className="w-4 h-4 text-accent" />
+          <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
+            <span className="text-sm font-black text-white flex items-center gap-1.5 whitespace-nowrap shrink-0">
+              <ChefHat className="w-4 h-4 text-accent shrink-0" />
               Home Tiffin
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-            <span className="text-[11px] font-semibold text-accent-light leading-none flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse shrink-0" />
+            <span className="text-[11px] font-semibold text-accent-light leading-none flex items-center gap-1 overflow-hidden">
               <Zap className="w-3.5 h-3.5 text-accent shrink-0 fill-accent" />
-              Order fresh home-cooked tiffins! Hot, healthy, and hygienic meals delivered daily across Karachi.
+              <span className="truncate">Order fresh home-cooked tiffins! Hot, healthy, and hygienic meals delivered daily across Karachi.</span>
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-4">
             <a href="#menu-list" className="bg-accent text-primary px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-white transition-all shadow-sm">
               Order Now
             </a>

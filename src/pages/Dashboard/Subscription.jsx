@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal'
 import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
 import api from '../../services/api'
+import { formatDate } from '../../services/dateFormatter'
 import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck, Check, Building2, User } from 'lucide-react'
 
 export default function Subscription() {
@@ -21,6 +22,7 @@ export default function Subscription() {
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [viewScreenshotUrl, setViewScreenshotUrl] = useState(null)
+  const [selectedWeek, setSelectedWeek] = useState(null)
 
   // Purchase Form States
   const [purchasePlan, setPurchasePlan] = useState(null) // null, 'weekly', 'monthly'
@@ -240,7 +242,7 @@ export default function Subscription() {
   // ── PENDING VERIFICATION STATE ──
   if (subscription && subscription.status === 'pending') {
     return (
-      <div className="flex flex-col gap-8 text-left w-full max-w-6xl mx-auto px-4 py-6">
+      <div className="flex flex-col gap-8 text-left w-full max-w-6xl mx-auto px-4 pt-6 pb-6">
         <div>
           <h1 className="text-3xl font-black text-text-dark tracking-tight">My Subscription</h1>
           <p className="text-sm text-gray-500 mt-1">Track and manage your recurring tiffin meal plan status.</p>
@@ -379,7 +381,7 @@ export default function Subscription() {
     const isWeekly = purchasePlan === 'weekly'
 
     return (
-      <div className="flex flex-col gap-8 text-left w-full">
+      <div className="flex flex-col gap-8 text-left w-full pb-6">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
           <div className="flex items-center gap-3.5">
@@ -931,7 +933,7 @@ export default function Subscription() {
     ]
 
     return (
-      <div className="flex flex-col gap-8 text-left w-full max-w-6xl mx-auto px-4 py-6">
+      <div className="flex flex-col gap-8 text-left w-full max-w-6xl mx-auto px-4 pt-6 pb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-dark">Tiffin Programs</h1>
           <p className="text-sm text-gray-500 mt-1">Choose a recurring plan and get fresh tiffins delivered daily.</p>
@@ -1046,7 +1048,7 @@ export default function Subscription() {
   const totalMeals = matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24)
   const usedMeals = Math.max(0, totalMeals - subscription.mealsRemaining)
   const progressPercent = totalMeals > 0 ? Math.round((usedMeals / totalMeals) * 100) : 0
-  const renewalDate = subscription.endDate ? new Date(subscription.endDate).toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'
+  const renewalDate = subscription.endDate ? formatDate(subscription.endDate) : 'N/A'
 
   const getMealNameForDay = (dayIndex) => {
     if (!matchingPlan || !matchingPlan.mealSchedules) return 'Chef\'s Choice'
@@ -1054,39 +1056,57 @@ export default function Subscription() {
     return schedule ? schedule.mealName : 'Chef\'s Choice'
   }
 
+  const daysPerWeek = 6
+  const totalWeeks = Math.ceil(totalMeals / daysPerWeek)
+  const currentDay = usedMeals + 1
+  const defaultWeek = Math.min(totalWeeks, Math.ceil(currentDay / daysPerWeek)) || 1
+  const activeWeek = selectedWeek !== null ? selectedWeek : defaultWeek
+
+  const getWeekStats = (weekNum) => {
+    const start = (weekNum - 1) * daysPerWeek + 1
+    const end = Math.min(totalMeals, weekNum * daysPerWeek)
+    let completed = 0
+    for (let i = start; i <= end; i++) {
+      if (i < usedMeals + 1) completed++
+    }
+    return { completed, total: end - start + 1 }
+  }
+
   return (
-    <div className="flex flex-col gap-8 text-left w-full">
+    <div className="flex flex-col gap-8 text-left w-full pb-6">
       <div>
         <h1 className="text-2xl font-bold text-text-dark">My Subscription</h1>
         <p className="text-sm text-gray-500">Your current meal plan and delivery schedule.</p>
       </div>
 
       {/* Plan Card */}
-      <Card className="p-8 hover:translate-y-0" hoverable={false}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-emerald-50">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary/10 text-primary rounded-2xl">
-              <Calendar className="w-8 h-8" />
+      <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-emerald-50">
+          <div className="flex items-center gap-4 text-left">
+            <div className="p-3.5 bg-primary/10 text-primary border border-primary/20 rounded-2xl shrink-0">
+              <Calendar className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="font-bold text-text-dark text-base">{planLabel}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Renews on: {renewalDate}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-extrabold text-text-dark text-lg tracking-tight">{planLabel}</h3>
+                <Badge variant={isActive ? 'success' : 'warning'}>
+                  {isActive ? 'Active' : subscription.status === 'paused' ? 'Paused' : subscription.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 font-semibold">Renews on: {renewalDate}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant={isActive ? 'success' : 'warning'}>
-              {isActive ? 'Active' : subscription.status === 'paused' ? 'Paused' : subscription.status}
-            </Badge>
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <Button
               variant={isActive ? 'outline' : 'primary'}
               size="sm"
               onClick={handleStatusToggle}
               isLoading={updating}
-              className="flex items-center gap-1.5 cursor-pointer"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 cursor-pointer rounded-xl font-bold px-4 py-2.5 text-xs uppercase tracking-wider"
             >
               {isActive ? (
-                <><X className="w-4 h-4" /> Pause Plan</>
+                'Pause Plan'
               ) : (
                 <><Play className="w-4 h-4" /> Resume Plan</>
               )}
@@ -1096,7 +1116,7 @@ export default function Subscription() {
                 variant="primary"
                 size="sm"
                 onClick={() => setPurchasePlan('monthly')}
-                className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold border-none shadow-md cursor-pointer transition-all duration-300 hover:scale-[1.03] active:scale-95"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold border-none shadow-md cursor-pointer transition-all duration-300 hover:scale-[1.03] active:scale-95 rounded-xl px-4 py-2.5 text-xs uppercase tracking-wider"
               >
                 <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" /> Upgrade to Monthly
               </Button>
@@ -1104,14 +1124,14 @@ export default function Subscription() {
           </div>
         </div>
         {subscription.isCompany && (
-          <div className="mt-4 p-4.5 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="mt-5 p-4.5 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
                 <Building2 className="w-5 h-5" />
               </div>
               <div className="text-left">
                 <p className="text-xs font-bold text-text-dark">Corporate Subscription Address</p>
-                <p className="text-[11px] text-gray-500 font-semibold mt-0.5">
+                <p className="text-[11px] text-gray-555 font-semibold mt-0.5">
                   Delivering to: <span className="font-bold text-primary">{subscription.companyAddress}</span>
                 </p>
               </div>
@@ -1124,48 +1144,59 @@ export default function Subscription() {
         )}
 
         {/* Meals Stats */}
-        <div className={`grid gap-4 pt-6 ${subscription.isCompany ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <div className={`grid gap-5 pt-6 ${
+          subscription.isCompany 
+            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5' 
+            : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+        }`}>
           {(subscription.isCompany 
             ? [
-                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Corporate Weekly' : 'Corporate Monthly' },
-                { label: 'Subscribed Employees', value: `${subscription.workerCount} Employees` },
-                { label: 'Daily Tiffins Today', value: `${subscription.workerCount} Tiffins` },
-                { label: 'Total Meals Quota', value: totalMeals * subscription.workerCount },
-                { label: 'Total Meals Delivered', value: usedMeals * subscription.workerCount },
-                { label: 'Total Meals Left', value: subscription.mealsRemaining * subscription.workerCount },
+                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Corporate Weekly' : 'Corporate Monthly', icon: Building2, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
+                { label: 'Employees', value: `${subscription.workerCount} Employees`, icon: User, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
+                { label: 'Total Quota', value: totalMeals * subscription.workerCount, icon: Calendar, colorClass: 'bg-sky-50 text-sky-800 border-sky-100/50' },
+                { label: 'Meals Delivered', value: usedMeals * subscription.workerCount, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
+                { label: 'Meals Remaining', value: subscription.mealsRemaining * subscription.workerCount, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
               ]
             : [
-                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Weekly' : 'Monthly' },
-                { label: 'Total Meals', value: totalMeals },
-                { label: 'Meals Used', value: usedMeals },
-                { label: 'Meals Left', value: subscription.mealsRemaining },
+                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Weekly' : 'Monthly', icon: Sparkles, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
+                { label: 'Total Meals', value: totalMeals, icon: Calendar, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
+                { label: 'Meals Used', value: usedMeals, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
+                { label: 'Meals Remaining', value: subscription.mealsRemaining, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
               ]
-          ).map((stat) => (
-            <div key={stat.label} className="bg-background rounded-2xl p-4 border border-emerald-50 text-center">
-              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">{stat.label}</p>
-              <p className="text-xl font-black text-text-dark mt-1">{stat.value}</p>
-            </div>
-          ))}
+          ).map((stat) => {
+            const Icon = stat.icon
+            return (
+              <div key={stat.label} className={`rounded-2xl p-5 border flex flex-col justify-between min-h-[110px] text-left transition-all hover:shadow-subtle ${stat.colorClass}`}>
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-75">{stat.label}</span>
+                  <div className="p-1.5 bg-white rounded-lg border border-current/10 shadow-xs shrink-0">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-xl font-black mt-2 leading-none">{stat.value}</p>
+              </div>
+            )
+          })}
         </div>
 
         {/* Meal Progress Bar */}
-        <div className="pt-6">
-          <div className="flex justify-between items-center text-xs font-bold mb-2">
+        <div className="mt-6 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+          <div className="flex justify-between items-center text-xs font-bold mb-2.5">
             <span className="text-text-dark">Meal Completion Progress</span>
-            <span className="text-primary">
+            <span className="text-primary font-black">
               {subscription.isCompany 
                 ? `${usedMeals * subscription.workerCount} / ${totalMeals * subscription.workerCount} Meals Received` 
                 : `${usedMeals} / ${totalMeals} Meals Received`
               }
             </span>
           </div>
-          <div className="w-full bg-gray-100 h-3.5 rounded-full overflow-hidden border border-emerald-50">
+          <div className="w-full bg-gray-150 h-3.5 rounded-full overflow-hidden border border-emerald-100/50">
             <div
-              className="bg-gradient-to-r from-primary to-emerald-600 h-full rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-400 font-semibold mt-2">
+          <p className="text-[10px] text-gray-400 font-semibold mt-2.5 text-left">
             {subscription.isCompany 
               ? `${subscription.mealsRemaining * subscription.workerCount} total meals (${subscription.mealsRemaining} days remaining) in your Corporate Plan.` 
               : `${subscription.mealsRemaining} meals remaining in your ${planLabel}.`
@@ -1175,43 +1206,127 @@ export default function Subscription() {
       </Card>
 
       {/* Subscription Meal Calendar Card */}
-      <Card className="p-8 hover:translate-y-0" hoverable={false}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-50 pb-4 mb-6 gap-3">
-          <div>
-            <h3 className="font-bold text-text-dark text-base">Subscription Meal Calendar</h3>
-            <p className="text-xs text-gray-500 mt-1">Review your day-by-day menu and delivery progress</p>
-          </div>
-          {subscription.planType === 'monthly' && (
-            <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 font-extrabold w-fit">
-              <span>Day {usedMeals + 1} of 30</span>
+      <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-emerald-50 pb-5 mb-6 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
+              <Calendar className="w-5 h-5" />
             </div>
-          )}
+            <div>
+              <h3 className="font-extrabold text-text-dark text-lg tracking-tight">Subscription Meal Calendar</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Track your daily deliveries and meal menus week-by-week</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {subscription.planType === 'monthly' && (
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                Day {usedMeals + 1} of 30
+              </span>
+            )}
+            <span className="text-xs font-bold text-gray-550 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+              {usedMeals} Completed • {subscription.mealsRemaining} Remaining
+            </span>
+          </div>
         </div>
 
-        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ${
-          subscription.planType === 'monthly' ? 'max-h-[380px] overflow-y-auto pr-2' : ''
-        }`}>
+        {/* Weekly Tabs (only if totalWeeks > 1) */}
+        {totalWeeks > 1 && (
+          <div className="flex flex-col gap-4 mb-6">
+            <div 
+              className="flex flex-row flex-nowrap gap-2 bg-[#F4F6F5] p-1.5 rounded-2xl overflow-x-auto border border-gray-150/50 max-w-full w-fit"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {Array.from({ length: totalWeeks }).map((_, idx) => {
+                const weekNum = idx + 1
+                const isSelected = activeWeek === weekNum
+                const { completed, total } = getWeekStats(weekNum)
+                const isWeekCompleted = completed === total
+                const isWeekActive = weekNum === defaultWeek
+
+                return (
+                  <button
+                    key={weekNum}
+                    type="button"
+                    onClick={() => setSelectedWeek(weekNum)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'bg-primary text-white shadow-subtle'
+                        : 'text-primary/75 hover:bg-emerald-50 hover:text-primary'
+                    }`}
+                  >
+                    <span>Week {weekNum}</span>
+                    {isWeekCompleted ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-300" />
+                    ) : isWeekActive ? (
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Week Progress Bar */}
+            {(() => {
+              const { completed, total } = getWeekStats(activeWeek)
+              const percent = Math.round((completed / total) * 100)
+              return (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50/15 border border-emerald-100/40 p-4 rounded-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-text-dark">Week {activeWeek} Delivery Progress</span>
+                    <span className="text-[10px] bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-md">
+                      {completed} of {total} Tiffins Received
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 w-full sm:w-48">
+                    <div className="flex-1 bg-gray-150 h-2 rounded-full overflow-hidden">
+                      <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
+                    </div>
+                    <span className="text-[11px] font-mono font-bold text-text-dark">{percent}%</span>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
+        {/* Calendar Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {(() => {
             const items = []
-            for (let i = 1; i <= totalMeals; i++) {
+            const startDay = totalWeeks > 1 ? (activeWeek - 1) * daysPerWeek + 1 : 1
+            const endDay = totalWeeks > 1 ? Math.min(totalMeals, activeWeek * daysPerWeek) : totalMeals
+
+            for (let i = startDay; i <= endDay; i++) {
               const mealName = getMealNameForDay(i)
               const isCompleted = i < usedMeals + 1
               const isToday = i === usedMeals + 1
               const isUpcoming = i > usedMeals + 1
 
               items.push(
-                <div
+                <motion.div
                   key={i}
-                  className={`relative p-4 rounded-2xl border transition-all flex flex-col gap-2 ${
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  transition={{ duration: 0.2 }}
+                  className={`relative p-5 rounded-2xl border transition-all flex flex-col justify-between min-h-[140px] text-left overflow-hidden ${
                     isToday
-                      ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20 scale-[1.01]'
+                      ? 'border-primary bg-gradient-to-br from-emerald-50/30 to-emerald-100/10 shadow-md ring-2 ring-primary/20'
                       : isCompleted
-                      ? 'border-emerald-100 bg-[#E8F5E9]/10 opacity-75'
-                      : 'border-gray-150 bg-white hover:border-emerald-100'
+                      ? 'border-emerald-100/50 bg-[#E8F5E9]/5 opacity-80'
+                      : 'border-gray-150 bg-white hover:border-emerald-100/80 hover:shadow-subtle'
                   }`}
                 >
-                  <div className="flex justify-between items-center">
-                    <span className={`text-[10px] font-black uppercase tracking-wider ${
+                  {/* Subtle Background Art for Today */}
+                  {isToday && (
+                    <div className="absolute -right-6 -bottom-6 text-primary/5 pointer-events-none transform rotate-12">
+                      <Utensils className="w-24 h-24" />
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center w-full">
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wider ${
                       isToday ? 'text-primary' : 'text-gray-400'
                     }`}>
                       Day {i}
@@ -1225,18 +1340,46 @@ export default function Subscription() {
                         <span className="text-[9px] bg-primary text-white font-extrabold px-1.5 py-0.5 rounded-md uppercase">Today</span>
                       </span>
                     ) : isCompleted ? (
-                      <Badge variant="success" className="text-[8px] px-1.5 py-0 uppercase">Completed</Badge>
+                      <Badge variant="success" className="text-[8px] px-1.5 py-0.5 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                        Delivered
+                      </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[8px] px-1.5 py-0 uppercase">Upcoming</Badge>
+                      <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 font-bold uppercase tracking-wider">
+                        Upcoming
+                      </Badge>
                     )}
                   </div>
-                  <div className="flex items-start gap-2 mt-1">
-                    <Utensils className={`w-4 h-4 shrink-0 mt-0.5 ${isToday ? 'text-primary' : 'text-gray-400'}`} />
-                    <p className={`text-xs font-bold ${isToday ? 'text-text-dark font-black' : isCompleted ? 'text-gray-400 line-through' : 'text-text-dark'}`}>
-                      {mealName}
-                    </p>
+
+                  <div className="flex flex-col gap-2.5 mt-4">
+                    <div className="flex items-start gap-2">
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <Utensils className={`w-4 h-4 shrink-0 mt-0.5 ${isToday ? 'text-primary animate-bounce' : 'text-gray-400'}`} />
+                      )}
+                      <p className={`text-xs font-bold leading-snug ${
+                        isToday 
+                          ? 'text-text-dark font-black' 
+                          : isCompleted 
+                          ? 'text-gray-400 line-through font-semibold' 
+                          : 'text-text-dark'
+                      }`}>
+                        {mealName}
+                      </p>
+                    </div>
                   </div>
-                </div>
+
+                  {/* Visual Completion Indicator Dot at bottom edge */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1">
+                    <div className={`h-full ${
+                      isToday 
+                        ? 'bg-primary' 
+                        : isCompleted 
+                        ? 'bg-emerald-500' 
+                        : 'bg-transparent'
+                    }`} />
+                  </div>
+                </motion.div>
               )
             }
             return items
@@ -1245,26 +1388,77 @@ export default function Subscription() {
       </Card>
 
       {/* Delivery Preferences */}
-      <Card className="p-8 hover:translate-y-0" hoverable={false}>
-        <h3 className="font-bold text-text-dark text-base pb-4 border-b border-emerald-50 mb-4">Delivery Preferences</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1">Delivery Time Slot</p>
-            <p className="text-sm font-bold text-text-dark">
-              {subscription.preferenceDeliveryTime === 'dinner' ? '🌙 Dinner (7:30 PM – 9:00 PM)' : '☀️ Lunch (12:30 PM – 2:00 PM)'}
-            </p>
+      <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
+        <div className="flex items-center gap-3 border-b border-emerald-50 pb-4 mb-6">
+          <div className="p-2.5 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
+            <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1">Meal Category</p>
-            <p className="text-sm font-bold text-text-dark capitalize">
-              {subscription.preferenceMealCategory || 'Any / Balanced'}
-            </p>
+            <h3 className="font-extrabold text-text-dark text-lg tracking-tight">Delivery Preferences</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Your set schedule details and dietary category</p>
           </div>
         </div>
 
-        <p className="text-[10px] text-gray-400 font-medium mt-6">
-          To change your delivery preferences (time slot or meal category), please contact Home Tiffin support via WhatsApp.
-        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+          {/* Time Slot card */}
+          <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+            <div className={`p-3.5 rounded-xl shrink-0 ${
+              subscription.preferenceDeliveryTime === 'dinner' 
+                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                : 'bg-amber-50 text-amber-600 border border-amber-100'
+            }`}>
+              {subscription.preferenceDeliveryTime === 'dinner' ? <Moon className="w-6 h-6 animate-pulse" /> : <Sun className="w-6 h-6 text-amber-500" />}
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Delivery Time Slot</span>
+              <span className="text-sm font-black text-text-dark mt-1 block">
+                {subscription.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM – 9:00 PM)' : 'Lunch (12:30 PM – 2:00 PM)'}
+              </span>
+            </div>
+          </div>
+
+          {/* Meal Category card */}
+          <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+            <div className="p-3.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl shrink-0">
+              <Leaf className="w-6 h-6" />
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Meal Category</span>
+              <span className="text-sm font-black text-text-dark capitalize mt-1 block">
+                {subscription.preferenceMealCategory || 'Balanced'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Change Request CTA box */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-emerald-50/15 border border-emerald-100/35 rounded-2xl">
+          <div className="flex items-start gap-3 text-left">
+            <div className="p-1.5 bg-emerald-100/50 rounded-lg text-primary mt-0.5">
+              <Phone className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-text-dark">Want to change your delivery settings?</p>
+              <p className="text-[10.5px] text-gray-555 font-medium leading-relaxed mt-0.5">
+                To update your time slot or meal type, simply send us a quick text on WhatsApp.
+              </p>
+            </div>
+          </div>
+          <a 
+            href="https://wa.me/923113840943?text=Hi%20Home%20Tiffin,%20I%20want%20to%20change%20my%20delivery%20preferences." 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="shrink-0"
+          >
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-xl border-emerald-600 text-emerald-800 hover:bg-emerald-50 px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+            >
+              Contact Support
+            </Button>
+          </a>
+        </div>
       </Card>
 
       {/* Confirmation/Truck Animation Modal */}

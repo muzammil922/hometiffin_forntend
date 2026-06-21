@@ -160,7 +160,7 @@ export default function Login() {
       <div className="bg-emerald-200/10 absolute top-1/2 left-1/3 w-80 h-80 rounded-full blur-3xl" />
       
       {/* ── MAIN GLASS CONTAINER ── */}
-      <div className="bg-white/25 backdrop-blur-xl border border-white/40 rounded-[32px] shadow-2xl p-6 sm:p-8 md:p-10 max-w-5xl w-full flex flex-col md:flex-row items-center gap-8 md:gap-10 min-h-[580px] z-10">
+      <div className="bg-transparent md:bg-white/25 md:backdrop-blur-xl border border-transparent md:border-white/40 md:rounded-[32px] shadow-none md:shadow-2xl py-2 px-0 sm:p-8 md:p-10 max-w-5xl w-full flex flex-col md:flex-row items-center gap-8 md:gap-10 min-h-[580px] z-10">
         
         {/* ── LEFT SIDE: Image Panel (Desktop Only) ── */}
         <div className="hidden md:flex md:w-[54%] flex-col items-center justify-center relative select-none">
@@ -179,7 +179,7 @@ export default function Login() {
         </div>
 
         {/* ── RIGHT SIDE: Form Card (Embedded) ── */}
-        <div className="w-full md:w-[46%] bg-white rounded-3xl p-6 sm:p-8 shadow-card flex flex-col gap-5 text-left border border-emerald-50/50">
+        <div className="w-full md:w-[46%] bg-transparent md:bg-white md:rounded-3xl p-2 md:p-8 shadow-none md:shadow-card flex flex-col gap-5 text-left border border-transparent md:border-emerald-50/50">
           {/* Logo Header */}
           <div className="flex items-center gap-1.5 text-primary text-xs font-black tracking-wider uppercase mb-1">
             <ChefHat className="w-5 h-5 text-primary" />

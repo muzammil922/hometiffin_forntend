@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
+import { formatDate, formatDateTime } from '../../services/dateFormatter'
 import { Calendar, Filter, Eye, Upload, AlertCircle, CheckCircle, User, Search, X, Truck, Phone, Mail, Download } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -76,7 +77,7 @@ export default function Orders() {
 
       doc.setFontSize(10)
       doc.setTextColor(100, 100, 100)
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26)
+      doc.text(`Generated on: ${formatDateTime(new Date())}`, 14, 26)
       doc.text(`Total Orders: ${orders.length}`, 14, 32)
 
       const headers = [['Order No', 'Customer Name', 'Phone', 'Items', 'Total Price', 'Status', 'Date']]
@@ -91,7 +92,7 @@ export default function Orders() {
           itemsStr,
           `PKR ${order.billingTotal}`,
           order.status.toUpperCase(),
-          new Date(order.createdAt).toLocaleDateString()
+          formatDate(order.createdAt)
         ]
       })
 
@@ -123,7 +124,7 @@ export default function Orders() {
 
       doc.setFontSize(10)
       doc.setTextColor(100, 100, 100)
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26)
+      doc.text(`Generated on: ${formatDateTime(new Date())}`, 14, 26)
       doc.text(`Total Active Subscriptions: ${orders.length}`, 14, 32)
 
       const headers = [['Subscriber/Company', 'Phone', 'Type', 'Delivery Time', 'Category', 'Worker Count', 'Meals Remaining', 'Expiry']]
@@ -137,7 +138,7 @@ export default function Orders() {
           sub.preferenceMealCategory || 'Balanced',
           String(sub.workerCount || 1),
           String(sub.mealsRemaining),
-          new Date(sub.endDate).toLocaleDateString()
+          formatDate(sub.endDate)
         ]
       })
 
@@ -699,7 +700,7 @@ export default function Orders() {
                     )}
                     <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 font-semibold">
                       <Calendar className="w-3.5 h-3.5 text-primary" />
-                      <span>{new Date(order.createdAt).toLocaleString()}</span>
+                      <span>{formatDateTime(order.createdAt)}</span>
                     </div>
                   </div>
 
@@ -743,7 +744,7 @@ export default function Orders() {
             <div className="flex justify-between items-center border-b border-emerald-50 pb-3">
               <div>
                 <p className="text-xs text-gray-400 font-semibold">Order Date</p>
-                <p className="font-bold text-text-dark mt-0.5">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                <p className="font-bold text-text-dark mt-0.5">{formatDateTime(selectedOrder.createdAt)}</p>
               </div>
               <Badge variant={getBadgeVariant(selectedOrder.status)}>{selectedOrder.status}</Badge>
             </div>

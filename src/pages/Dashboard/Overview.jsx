@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import { Calendar, CreditCard, ShoppingBag, Clock, Truck, Utensils, MapPin, CheckCircle2, Pause, ChevronRight } from 'lucide-react'
 import api from '../../services/api'
 import io from 'socket.io-client'
+import { formatDate } from '../../services/dateFormatter'
 
 export default function Overview() {
   const { user, fetchProfile } = useAuthStore()
@@ -19,7 +20,7 @@ export default function Overview() {
   const activeSub = user?.subscriptions?.[0]
   const hasActivePlan = !!activeSub && activeSub.status === 'active'
   const planName = activeSub ? (activeSub.planType === 'weekly' ? 'Weekly Tiffin Plan' : 'Monthly Tiffin Plan') : 'None'
-  const planRenewal = activeSub ? new Date(activeSub.endDate).toLocaleDateString() : 'N/A'
+  const planRenewal = activeSub ? formatDate(activeSub.endDate) : 'N/A'
 
   // Quotas
   const totalMeals = activeSub ? (activeSub.planType === 'weekly' ? 7 : 30) : 0
@@ -160,10 +161,10 @@ export default function Overview() {
     const isDelivered = status === 'Delivered'
     
     return [
-      { label: 'Confirmed', time: '11:00 AM', active: isConfirmed, icon: CheckCircle2 },
-      { label: 'In Kitchen', time: '11:45 AM', active: isPreparing, icon: Utensils },
-      { label: 'On the Way', time: '12:30 PM', active: isOntheWay, icon: Truck, pulse: ['Picked Up', 'Nearby'].includes(status) },
-      { label: 'Delivered', time: '1:30 PM', active: isDelivered, icon: CheckCircle2 }
+      { label: 'Confirmed', active: isConfirmed },
+      { label: 'In Kitchen', active: isPreparing },
+      { label: 'On the Way', active: isOntheWay },
+      { label: 'Delivered', active: isDelivered }
     ]
   }
 
@@ -189,112 +190,56 @@ export default function Overview() {
         </div>
 
         {/* TOP STATS ROW (4 CARDS) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="flex overflow-x-auto lg:grid lg:grid-cols-4 gap-4 pb-2 snap-x snap-mandatory scrollbar-none">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="p-6 bg-white rounded-3xl border border-gray-150 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gray-200 animate-pulse"></div>
-              <div className="flex flex-col gap-2 flex-1">
-                <div className="h-3 bg-gray-200 rounded-lg w-16 animate-pulse"></div>
-                <div className="h-5 bg-gray-200 rounded-lg w-28 animate-pulse"></div>
-              </div>
+            <div key={i} className="p-5 bg-white rounded-2xl border border-gray-100 flex flex-col gap-2 shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start">
+              <div className="h-3 bg-gray-200 rounded w-16"></div>
+              <div className="h-6 bg-gray-200 rounded w-28 mt-1"></div>
             </div>
           ))}
         </div>
 
         {/* LOWER SECTION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* LEFT/CENTER column */}
-          <div className="lg:col-span-2 flex flex-col gap-8">
-            {/* Active Plan Delivery Card Skeleton */}
-            <div className="p-6 sm:p-8 bg-white rounded-3xl border border-gray-150 flex flex-col gap-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+          <div className="lg:col-span-2 flex flex-col gap-6">
+            {/* Today's Tiffin Skeleton */}
+            <div className="p-6 bg-white rounded-2xl border border-gray-100 flex flex-col gap-4">
+              <div className="flex justify-between items-center pb-3 border-b border-gray-100">
                 <div className="flex flex-col gap-2">
-                  <div className="h-5 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
-                  <div className="h-6 bg-gray-200 rounded-lg w-48 animate-pulse"></div>
-                  <div className="h-3 bg-gray-200 rounded-lg w-28 animate-pulse"></div>
+                  <div className="h-3 bg-gray-200 rounded w-20"></div>
+                  <div className="h-6 bg-gray-200 rounded w-48"></div>
                 </div>
-                <div className="flex flex-col gap-2 sm:items-end">
-                  <div className="h-3 bg-gray-200 rounded-lg w-20 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 rounded-lg w-36 animate-pulse"></div>
-                </div>
+                <div className="h-6 bg-gray-200 rounded w-16"></div>
               </div>
-
-              {/* Next Meal Detail Block Skeleton */}
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-20 h-20 bg-gray-200 rounded-xl animate-pulse"></div>
-                <div className="flex-1 flex flex-col gap-2 w-full animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded-lg w-24"></div>
-                  <div className="h-5 bg-gray-200 rounded-lg w-56"></div>
-                  <div className="h-3 bg-gray-200 rounded-lg w-36"></div>
-                </div>
-              </div>
-
-              {/* Progress Tracking Progress Bar Skeleton */}
-              <div className="pt-2">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="h-3 bg-gray-200 rounded-lg w-36 animate-pulse"></div>
-                  <div className="h-3 bg-gray-200 rounded-lg w-28 animate-pulse"></div>
-                </div>
-                <div className="w-full bg-gray-100 h-3.5 rounded-full"></div>
-              </div>
+              <div className="h-16 bg-gray-55 rounded-xl"></div>
             </div>
 
-            {/* Recent Orders History List Skeleton */}
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <div className="h-6 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
-                <div className="h-4 bg-gray-200 rounded-lg w-16 animate-pulse"></div>
+            {/* Plan Progress Skeleton */}
+            <div className="p-6 bg-white rounded-2xl border border-gray-100 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-2">
+                  <div className="h-3 bg-gray-200 rounded w-24"></div>
+                  <div className="h-5 bg-gray-200 rounded w-40"></div>
+                </div>
               </div>
-
-              <div className="flex flex-col gap-4 animate-pulse">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white rounded-3xl border border-gray-150">
-                    <div className="flex flex-col gap-2 text-left flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 bg-gray-200 rounded-lg w-20"></div>
-                        <div className="h-5 bg-gray-200 rounded-lg w-16"></div>
-                      </div>
-                      <div className="h-3 bg-gray-200 rounded-lg w-48"></div>
-                      <div className="h-3 bg-gray-200 rounded-lg w-24"></div>
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-gray-100 pt-4 sm:pt-0">
-                      <div className="flex flex-col gap-1 sm:items-end">
-                        <div className="h-3 bg-gray-200 rounded-lg w-20"></div>
-                        <div className="h-4 bg-gray-200 rounded-lg w-24"></div>
-                      </div>
-                      <div className="w-20 h-8 bg-gray-200 rounded-xl"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="h-2 bg-gray-100 rounded-full mt-4"></div>
             </div>
           </div>
 
           {/* RIGHT Column Skeleton */}
           <div className="lg:col-span-1 flex flex-col gap-6">
-            <div className="p-6 bg-white rounded-3xl border border-gray-150 flex flex-col gap-4 animate-pulse">
-              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-                <div className="w-5 h-5 bg-gray-200 rounded-full"></div>
-                <div className="h-5 bg-gray-200 rounded-lg w-36"></div>
+            <div className="p-6 bg-white rounded-2xl border border-gray-100 flex flex-col gap-4">
+              <div className="pb-3 border-b border-gray-100">
+                <div className="h-5 bg-gray-200 rounded w-28"></div>
               </div>
-
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 animate-pulse">
                 {[1, 2, 3].map((i) => (
-                  <div key={i}>
-                    <div className="h-3 bg-gray-200 rounded-lg w-24 mb-1"></div>
-                    <div className="h-4 bg-gray-200 rounded-lg w-full"></div>
+                  <div key={i} className="flex flex-col gap-1.5">
+                    <div className="h-2.5 bg-gray-200 rounded w-20"></div>
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Hygiene promises card skeleton */}
-            <div className="p-6 bg-gray-50 rounded-3xl border border-gray-150 flex flex-col gap-3 animate-pulse">
-              <div className="w-24 h-5 bg-gray-200 rounded-full"></div>
-              <div className="h-4 bg-gray-200 rounded-lg w-40"></div>
-              <div className="h-3 bg-gray-200 rounded-lg w-full"></div>
-              <div className="h-3 bg-gray-200 rounded-lg w-5/6"></div>
             </div>
           </div>
         </div>
@@ -303,13 +248,13 @@ export default function Overview() {
   }
 
   return (
-    <div className="flex flex-col gap-8 text-left w-full px-1">
+    <div className="flex flex-col gap-8 text-left w-full px-1 pb-12">
       
       {/* Welcome Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-black text-primary tracking-tight">Assalam-o-Alaikum, {user?.name || 'User'}!</h1>
-          <p className="text-sm text-gray-500 font-medium">Here is your Home Tiffin overview for today.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Assalam-o-Alaikum, {user?.name?.split(' ')[0] || 'User'}! 👋</h1>
+          <p className="text-xs sm:text-sm text-gray-500 font-medium">Here is your Home Tiffin overview for today.</p>
         </div>
         {!hasActivePlan && (
           <Link to="/dashboard/subscription">
@@ -321,60 +266,42 @@ export default function Overview() {
       </div>
 
       {/* ── TOP STATS ROW (4 CARDS) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="flex overflow-x-auto lg:grid lg:grid-cols-4 gap-4 pb-2 snap-x snap-mandatory scrollbar-none">
         
         {/* Card 1: Active Plan */}
-        <Card className="flex items-center gap-4 hover:translate-y-0.5 border border-emerald-50 bg-white" hoverable={false}>
-          <div className="p-3.5 rounded-2xl text-emerald-600 bg-emerald-50">
-            <Calendar className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wider">
-              {activeSub?.status === 'paused' ? 'Paused Plan' : 'Active Plan'}
-            </p>
-            <p className="text-lg font-black text-text-dark">
-              {activeSub ? (activeSub.status === 'paused' ? `${planName} (Paused)` : planName) : 'None'}
-            </p>
-          </div>
+        <Card className="border border-gray-100 bg-white !p-5 hover:shadow-subtle transition-all duration-300 rounded-2xl shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start" hoverable={false}>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Plan Status</span>
+          <span className="text-base font-black text-text-dark mt-1 block truncate">
+            {activeSub ? (activeSub.status === 'paused' ? 'Paused Plan' : planName) : 'No Plan'}
+          </span>
         </Card>
 
         {/* Card 2: Total Orders */}
-        <Card className="flex items-center gap-4 hover:translate-y-0.5 border border-emerald-50 bg-white" hoverable={false}>
-          <div className="p-3.5 rounded-2xl text-sky-600 bg-sky-50">
-            <ShoppingBag className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wider">Total Orders</p>
-            <p className="text-lg font-black text-text-dark">{orders.length}</p>
-          </div>
+        <Card className="border border-gray-100 bg-white !p-5 hover:shadow-subtle transition-all duration-300 rounded-2xl shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start" hoverable={false}>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Orders</span>
+          <span className="text-xl font-black text-text-dark mt-1 block">
+            {orders.length}
+          </span>
         </Card>
 
         {/* Card 3: Spend */}
-        <Card className="flex items-center gap-4 hover:translate-y-0.5 border border-emerald-50 bg-white" hoverable={false}>
-          <div className="p-3.5 rounded-2xl text-amber-600 bg-amber-50">
-            <CreditCard className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wider">Spend (Month)</p>
-            <p className="text-lg font-black text-text-dark">PKR {getMonthlySpend()}</p>
-          </div>
+        <Card className="border border-gray-100 bg-white !p-5 hover:shadow-subtle transition-all duration-300 rounded-2xl shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start" hoverable={false}>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Monthly Spend</span>
+          <span className="text-xl font-black text-primary mt-1 block truncate">
+            PKR {getMonthlySpend()}
+          </span>
         </Card>
 
         {/* Card 4: Next Delivery */}
-        <Card className="flex items-center gap-4 hover:translate-y-0.5 border border-emerald-50 bg-white" hoverable={false}>
-          <div className="p-3.5 rounded-2xl text-rose-600 bg-rose-50">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 font-extrabold uppercase tracking-wider">Next Delivery</p>
-            <p className="text-base font-black text-rose-700 tracking-tight font-mono mt-0.5">
-              {hasActivePlan ? (
-                `${formatNumber(timeLeft.hours)}h ${formatNumber(timeLeft.minutes)}m ${formatNumber(timeLeft.seconds)}s`
-              ) : (
-                'No Active Plan'
-              )}
-            </p>
-          </div>
+        <Card className="border border-gray-100 bg-white !p-5 hover:shadow-subtle transition-all duration-300 rounded-2xl shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start" hoverable={false}>
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Next Delivery</span>
+          <span className="text-xl font-black text-text-dark mt-1 block font-mono">
+            {hasActivePlan ? (
+              `${formatNumber(timeLeft.hours)}h ${formatNumber(timeLeft.minutes)}m`
+            ) : (
+              '—'
+            )}
+          </span>
         </Card>
 
       </div>
@@ -386,109 +313,133 @@ export default function Overview() {
         <div className="lg:col-span-2 flex flex-col gap-8">
           
           {activeSub || activeOrder ? (
-            /* Active Plan Delivery Tracking & Completion details */
-            <Card className="p-6 sm:p-8 border border-emerald-100 flex flex-col gap-6 bg-white relative overflow-hidden" hoverable={false}>
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-emerald-50">
-                <div>
-                  <Badge variant={activeSub ? (activeSub.status === 'active' ? 'success' : 'warning') : 'success'} className="mb-2">
-                    {activeSub ? (activeSub.status === 'active' ? 'Active Subscription' : 'Paused Subscription') : 'Active Order'}
+            <div className="flex flex-col gap-6">
+              {/* Today's Tiffin Delivery Status Card */}
+              <Card className="!p-6 border border-gray-100 bg-white shadow-sm rounded-2xl" hoverable={false}>
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-5">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Today's Delivery</span>
+                    <h2 className="text-lg font-black text-text-dark mt-0.5">{activeOrder ? nextMealName : 'Scheduled Tiffin'}</h2>
+                  </div>
+                  <Badge variant={activeOrder ? getStatusBadgeVariant(activeOrderStatus) : 'primary'}>
+                    {activeOrder ? activeOrderStatus : 'Scheduled'}
                   </Badge>
-                  <h3 className="text-xl font-black text-text-dark tracking-tight">{activeSub ? planName : 'Home Tiffin Delivery'}</h3>
-                  <p className="text-xs text-gray-500 font-semibold mt-0.5">Renew date: {planRenewal}</p>
                 </div>
-                <div className="text-left sm:text-right">
-                  <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Today's Session</span>
-                  <span className="text-sm font-bold text-primary">
-                    {activeSub ? (activeSub.status === 'active' ? (activeSub.preferenceDeliveryTime === 'dinner' ? 'Dinner Slot (8:30 PM)' : 'Lunch Slot (1:30 PM)') : 'Paused') : 'N/A'}
-                  </span>
-                </div>
-              </div>
 
-              {/* Next Meal Detail Block */}
-              <div className="bg-[#F9FBF9] border border-emerald-100/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-4">
-                <img
-                  src="/biryanis.png"
-                  alt="Today's Meal"
-                  className="w-20 h-20 object-cover rounded-xl shadow-sm border border-emerald-100/80 bg-white"
-                />
-                <div className="flex-1 text-center sm:text-left">
-                  <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">
-                    {activeOrder ? 'Current Order Menu' : (activeSub.status === 'active' ? "Today's Plan Menu" : 'Plan Menu')}
-                  </span>
-                  <h4 className="font-extrabold text-text-dark text-base mt-1">{nextMealName}</h4>
-                  <p className="text-xs text-gray-500 font-medium mt-0.5">{nextMealDesc}</p>
-                </div>
-              </div>
-
-              {/* Visual Order Tracking Status */}
-              {activeOrder && (
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Delivery Tracking Status</h4>
-                    <Link to={`/dashboard/tracking?orderId=${activeOrder.id}`} className="text-xs font-bold text-primary hover:underline">
-                      Open Live Tracking Map →
-                    </Link>
+                {/* Delivery Time & Details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 rounded-xl p-4 mb-6">
+                  <div>
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Estimated Delivery</span>
+                    <span className="text-xs font-bold text-text-dark mt-0.5 block">
+                      {activeSub?.preferenceDeliveryTime === 'dinner' ? 'Dinner Slot (7:30 PM - 9:00 PM)' : 'Lunch Slot (12:30 PM - 2:00 PM)'}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative">
-                    {getTimelineSteps().map((step, idx) => {
-                      const StepIcon = step.icon;
-                      return (
-                        <div key={idx} className="bg-background rounded-xl p-3 border border-emerald-50/50 flex flex-col items-center justify-center text-center relative gap-1.5 shadow-sm">
-                          <div className={`p-2 rounded-full ${
-                             step.active 
-                              ? 'bg-primary text-white' 
-                              : 'bg-gray-100 text-gray-300'
-                          } ${step.pulse ? 'animate-pulse' : ''}`}>
-                            <StepIcon className="w-5 h-5" />
+                  <div>
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Portion Size</span>
+                    <span className="text-xs font-bold text-text-dark mt-0.5 block">
+                      {activeOrder?.items?.[0]?.portion || 'Standard (500g)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tracking Progress Stepper (No cartoonish icons) */}
+                {activeOrder && (
+                  <div className="py-2 mb-2">
+                    <div className="flex justify-between items-center mb-6">
+                      <span className="text-xs font-bold text-gray-450 uppercase tracking-wider">Tiffin Tracking</span>
+                      <Link to={`/dashboard/tracking?orderId=${activeOrder.id}`} className="text-xs font-bold text-primary hover:underline">
+                        Live Tracking Map →
+                      </Link>
+                    </div>
+                    
+                    <div className="relative flex items-center justify-between w-full px-2 sm:px-6">
+                      {/* Background Progress Line */}
+                      <div className="absolute left-6 right-6 top-4 h-0.5 bg-gray-100 -translate-y-1/2" />
+                      
+                      {/* Filled Progress Line */}
+                      <div 
+                        className="absolute left-6 top-4 h-0.5 bg-primary -translate-y-1/2 transition-all duration-500"
+                        style={{
+                          width: 
+                            activeOrderStatus === 'Delivered' ? 'calc(100% - 3rem)' :
+                            ['Picked Up', 'Nearby'].includes(activeOrderStatus) ? '66%' :
+                            activeOrderStatus === 'Preparing' ? '33%' : '0%'
+                        }}
+                      />
+
+                      {/* Step Nodes */}
+                      {getTimelineSteps().map((step, idx) => (
+                        <div key={idx} className="flex flex-col items-center relative z-10">
+                          {/* Node Circle */}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                            step.active
+                              ? 'bg-primary border-primary text-white shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-300'
+                          }`}>
+                            {step.active && activeOrderStatus !== step.label ? (
+                              <span className="text-[10px] font-black">✓</span>
+                            ) : (
+                              <div className={`w-2.5 h-2.5 rounded-full ${step.active ? 'bg-white animate-pulse' : 'bg-gray-350'}`} />
+                            )}
                           </div>
-                          <div>
-                            <p className={`text-xs font-bold ${step.active ? 'text-text-dark' : 'text-gray-400'}`}>{step.label}</p>
-                            <p className="text-[10px] text-gray-400 font-semibold mt-0.5">{step.time}</p>
-                          </div>
+                          {/* Step Label */}
+                          <span className={`text-[10px] sm:text-xs font-bold mt-2 text-center ${
+                            step.active ? 'text-text-dark font-extrabold' : 'text-gray-400'
+                          }`}>
+                            {step.label}
+                          </span>
                         </div>
-                      )
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </Card>
 
-              {/* Plan Meals Progress Tracking */}
+              {/* Subscription Progress Card */}
               {activeSub && (
-                <div className="pt-2">
-                  <div className="flex justify-between items-center text-xs font-bold mb-1.5">
-                    <span className="text-text-dark">Meal Completion Progress</span>
-                    <span className="text-primary">{completedMeals} / {totalMeals} Meals Received</span>
+                <Card className="!p-6 border border-gray-100 bg-white shadow-sm rounded-2xl" hoverable={false}>
+                  <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100 mb-4">
+                    <div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Subscription Plan</span>
+                      <h2 className="text-base font-black text-text-dark mt-0.5">{planName}</h2>
+                    </div>
+                    <span className="font-extrabold text-[11px] text-primary bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
+                      Renew date: {planRenewal}
+                    </span>
                   </div>
-                  <div className="w-full bg-gray-100 h-3.5 rounded-full overflow-hidden border border-emerald-50">
-                    <div 
-                      className="bg-gradient-to-r from-primary to-emerald-600 h-full rounded-full transition-all duration-500" 
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-semibold mt-1.5">
-                    {activeSub.status === 'paused'
-                      ? `Plan is paused. You have ${activeSub.mealsRemaining} meals remaining.`
-                      : `You have enjoyed ${completedMeals} hot tiffins so far. Remaining ${activeSub.mealsRemaining} meals will be delivered as scheduled.`}
-                  </p>
-                </div>
-              )}
 
-            </Card>
+                  {/* Progress bar */}
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center text-xs font-bold mb-2">
+                      <span className="text-gray-500">Meal Progress</span>
+                      <span className="text-primary">{completedMeals} / {totalMeals} Meals Completed</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-primary h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400 font-semibold mt-2.5 leading-relaxed">
+                      {activeSub.status === 'paused'
+                        ? `Plan is paused. You have ${activeSub.mealsRemaining} meals remaining.`
+                        : `You have received ${completedMeals} of your ${totalMeals} meals. Delivery schedules are active.`}
+                    </p>
+                  </div>
+                </Card>
+              )}
+            </div>
           ) : (
             /* Invite Widget if No Plan */
-            <Card className="p-8 border border-emerald-100 flex flex-col items-center justify-center text-center gap-5 bg-white" hoverable={false}>
-              <div className="p-4 bg-emerald-50 rounded-full text-primary">
-                <Utensils className="w-10 h-10" />
-              </div>
+            <Card className="p-8 border border-gray-150 bg-white flex flex-col items-center text-center gap-4 rounded-2xl" hoverable={false}>
               <div className="max-w-md">
-                <h3 className="text-xl font-black text-text-dark">No Active Subscription</h3>
-                <p className="text-sm text-gray-500 mt-2 font-semibold leading-relaxed">
-                  You don't have a recurring meal subscription. Subscribe to Weekly or Monthly plans and enjoy hot, organic tiffins delivered daily to your doorstep.
+                <h3 className="text-lg font-black text-text-dark">No Active Subscription</h3>
+                <p className="text-xs text-gray-500 mt-1 font-semibold leading-relaxed">
+                  Subscribe to a weekly or monthly tiffin plan to enjoy fresh home-cooked meals delivered daily to your doorstep.
                 </p>
               </div>
               <Link to="/dashboard/subscription">
-                <Button variant="primary" className="rounded-2xl font-bold px-8 py-3.5 shadow-subtle bg-primary text-white">
+                <Button variant="primary" className="rounded-xl font-bold px-6 py-2.5 shadow-subtle bg-primary text-white">
                   Explore Subscription Plans
                 </Button>
               </Link>
@@ -496,45 +447,42 @@ export default function Overview() {
           )}
 
           {/* Recent Orders History List */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 mt-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-text-dark tracking-tight">Recent Orders</h3>
+              <h3 className="text-base font-black text-text-dark tracking-tight">Recent Orders</h3>
               <Link to="/dashboard/orders" className="text-xs font-bold text-primary flex items-center gap-0.5 hover:underline">
                 View All
                 <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
 
-            <div className="flex flex-col gap-4">
-              {orders.slice(0, 3).map((order) => {
+            <div className="flex flex-col gap-3">
+              {orders.slice(0, 5).map((order) => {
                 const itemsStr = Array.isArray(order.items)
                   ? order.items.map((i) => `${i.name} (Qty: ${i.quantity})`).join(', ')
                   : 'Tiffin Meal'
                 return (
                   <Card 
                     key={order.id} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-emerald-50 bg-white hover:translate-y-0"
-                    hoverable={false}
+                    className="flex flex-row items-center justify-between gap-4 !p-4 border border-gray-100 bg-white hover:border-gray-200 transition-all duration-200 rounded-2xl"
+                    hoverable={true}
                   >
-                    <div className="flex flex-col gap-1.5 text-left">
+                    <div className="flex flex-col gap-1 text-left min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-text-dark">{order.orderNumber}</span>
+                        <span className="text-xs font-black text-text-dark">{order.orderNumber}</span>
                         <Badge variant={getStatusBadgeVariant(order.status)}>{order.status}</Badge>
                       </div>
-                      <p className="text-xs text-gray-500 font-semibold truncate max-w-sm">{itemsStr}</p>
-                      <p className="text-[10px] text-gray-400 font-semibold">{new Date(order.createdAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500 font-semibold truncate mt-0.5">{itemsStr}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="text-[10px] text-gray-400 font-bold">Ordered:</span>
+                        <span className="text-[10px] bg-emerald-50 text-primary font-extrabold px-2 py-0.5 rounded border border-emerald-100/50">
+                          {formatDate(order.createdAt)}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-emerald-50 pt-4 sm:pt-0">
-                      <div className="text-left sm:text-right">
-                        <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Total Amount</span>
-                        <span className="text-sm font-bold text-primary">PKR {order.billingTotal}</span>
-                      </div>
-                      <Link to="/dashboard/orders">
-                        <Button variant="outline" size="sm" className="flex items-center gap-1 text-xs">
-                          Details
-                        </Button>
-                      </Link>
+                    <div className="shrink-0 text-right">
+                      <span className="text-sm font-black text-primary">PKR {order.billingTotal}</span>
                     </div>
                   </Card>
                 )
@@ -553,37 +501,36 @@ export default function Overview() {
         <div className="lg:col-span-1 flex flex-col gap-6">
           
           {/* Delivery Configuration Address Card */}
-          <Card className="p-6 border border-emerald-100 bg-white" hoverable={false}>
-            <div className="flex items-center gap-2.5 pb-3 border-b border-emerald-50">
-              <MapPin className="w-5 h-5 text-primary" />
-              <h3 className="font-extrabold text-text-dark text-base">Delivery Preferences</h3>
-            </div>
+          <Card className="p-6 border border-gray-100 bg-white shadow-sm rounded-2xl" hoverable={false}>
+            <h3 className="font-extrabold text-text-dark text-base border-b border-gray-100 pb-3 mb-4">
+              Delivery Info
+            </h3>
             
-            <div className="flex flex-col gap-4 mt-4 text-xs font-semibold text-gray-600">
+            <div className="flex flex-col gap-4 text-xs font-semibold text-gray-650">
               <div>
-                <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1">Destination Address</p>
-                <p className="text-text-dark leading-relaxed font-bold">
+                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5">Delivery Address</span>
+                <span className="text-text-dark font-bold text-xs leading-relaxed">
                   {user?.savedAddresses?.[0]?.address || user?.address || 'Gulshan-e-Iqbal, Karachi'}
-                </p>
+                </span>
               </div>
 
               <div>
-                <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1">Assigned Delivery Slot</p>
-                <p className="text-text-dark font-bold">
+                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5">Delivery Slot</span>
+                <span className="text-text-dark font-bold text-xs">
                   {activeSub?.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM - 9:00 PM)' : 'Lunch (12:30 PM - 2:00 PM)'}
-                </p>
+                </span>
               </div>
 
               <div>
-                <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1">Contact Phone</p>
-                <p className="text-text-dark font-bold">{user?.phone || 'Not provided'}</p>
+                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5">Contact Phone</span>
+                <span className="text-text-dark font-bold text-xs">{user?.phone || 'Not provided'}</span>
               </div>
 
               {activeSub && (
-                <div className="flex gap-2.5 mt-2 pt-2 border-t border-emerald-50/50">
+                <div className="mt-2 pt-4 border-t border-gray-100">
                   <Link to="/dashboard/subscription" className="w-full">
-                    <Button variant="outline" size="sm" className="w-full text-[11px] py-2.5 font-bold flex items-center justify-center gap-1 rounded-xl">
-                      Manage Subscription Plan
+                    <Button variant="outline" size="sm" className="w-full text-xs py-2.5 font-bold flex items-center justify-center gap-1 rounded-xl">
+                      Manage Subscription
                     </Button>
                   </Link>
                 </div>
@@ -592,11 +539,13 @@ export default function Overview() {
           </Card>
 
           {/* Daily Hygiene Check Badge */}
-          <Card className="p-6 border border-emerald-100 bg-emerald-50/30 flex flex-col gap-3" hoverable={false}>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full w-fit">Hygiene Promise</span>
-            <h4 className="font-extrabold text-text-dark text-sm leading-snug">Insulated Thermal Packaging</h4>
+          <Card className="p-5 border border-emerald-50 bg-emerald-50/20 rounded-2xl flex flex-col gap-2" hoverable={false}>
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full w-fit">
+              Hygiene Promise
+            </span>
+            <h4 className="font-black text-text-dark text-sm mt-1">Insulated thermal canisters</h4>
             <p className="text-xs text-gray-500 leading-relaxed font-medium">
-              Every lunch and dinner tiffin box is packed in high-grade insulated thermal canisters to preserve heat, nutrition, and premium taste on its way to you.
+              Tiffins are packed in high-grade insulated containers to preserve heat and freshness.
             </p>
           </Card>
 

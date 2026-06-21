@@ -8,6 +8,7 @@ import Login from '../pages/Login'
 import Register from '../pages/Register'
 import Reviews from '../pages/Reviews'
 import Cart from '../pages/Cart'
+import QuickOrder from '../pages/QuickOrder'
 import DashboardLayout from '../pages/Dashboard/index'
 import Overview from '../pages/Dashboard/Overview'
 import AdminOverview from '../pages/Dashboard/AdminOverview'
@@ -24,6 +25,7 @@ import WhatsAppConnector from '../pages/Dashboard/WhatsAppConnector'
 import RiderRegistry from '../pages/Dashboard/RiderRegistry'
 import SubscriptionsManager from '../pages/Dashboard/SubscriptionsManager'
 import UsersManager from '../pages/Dashboard/UsersManager'
+import BannersManager from '../pages/Dashboard/BannersManager'
 
 // Role guard for sub-routes with permission check
 function RoleRoute({ roles, element, requiredPermission }) {
@@ -93,6 +95,7 @@ export default function AppRoutes() {
       <Route path="/cart" element={<Cart />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/quick-order" element={<QuickOrder />} />
 
       {/* Protected Dashboard Routes */}
       <Route
@@ -115,6 +118,7 @@ export default function AppRoutes() {
         <Route path="meals" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Meals" element={<MealsManager />} />} />
         <Route path="subscriptions" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Subscriptions" element={<SubscriptionsManager />} />} />
         <Route path="users" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Users" element={<UsersManager />} />} />
+        <Route path="banners" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Banners" element={<BannersManager />} />} />
         <Route path="payments" element={<RoleRoute roles={['admin', 'customer', 'management']} requiredPermission="Payments Verification" element={<Payments />} />} />
         <Route path="templates" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Message Templates" element={<TemplatesCustomizer />} />} />
         <Route path="whatsapp" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Evolution WhatsApp" element={<WhatsAppConnector />} />} />

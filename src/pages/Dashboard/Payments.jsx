@@ -5,7 +5,8 @@ import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
-import { Download, CreditCard, DollarSign, CheckCircle, XCircle, Search, X, Image } from 'lucide-react'
+import { formatDate, formatDateTime } from '../../services/dateFormatter'
+import { Download, CreditCard, DollarSign, CheckCircle, XCircle, Search, X, Image, Calendar, ShoppingBag, Sparkles } from 'lucide-react'
 
 const DEFAULT_LIMIT = 20
 
@@ -14,6 +15,8 @@ export default function Payments() {
   const { user } = useAuthStore()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const [customerTab, setCustomerTab] = useState('daily')
 
   // Admin-only: pagination + search
   const [page, setPage]             = useState(1)
@@ -47,11 +50,17 @@ export default function Payments() {
     } finally {
       setLoading(false)
     }
-  }, [user, addToast])
+  }, [user?.role, addToast])
 
   useEffect(() => {
     fetchOrders()
-  }, [user])
+  }, [user?.role, fetchOrders])
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      useAuthStore.getState().fetchProfile()
+    }
+  }, [])
 
   // Admin: confirm payment
   const handleConfirmPayment = async (orderId) => {
@@ -89,8 +98,10 @@ export default function Payments() {
     setPage(1)
   }
 
-  // ── Customer helpers ──
-  const getMonthlySpend = () => {
+  // ─── Customer helpers ──
+  const activeSub = user?.subscriptions?.find(sub => sub.status === 'active')
+
+  const getDailyOrdersMonthly = () => {
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
@@ -102,9 +113,38 @@ export default function Payments() {
       .reduce((sum, o) => sum + o.billingTotal, 0)
   }
 
-  const getPaymentMode = () => {
-    if (orders.length === 0) return 'N/A'
-    return orders[0].paymentMethod
+  const getDailyOrdersAllTime = () => {
+    return orders
+      .filter(o => o.paymentStatus === 'verified')
+      .reduce((sum, o) => sum + o.billingTotal, 0)
+  }
+
+  const getSubMonthlySpend = () => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    return (user?.subscriptions || [])
+      .filter(s => {
+        const d = new Date(s.createdAt)
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear && s.paymentStatus === 'verified'
+      })
+      .reduce((sum, s) => sum + (s.price || 0), 0)
+  }
+
+  const getSubAllTime = () => {
+    return (user?.subscriptions || [])
+      .filter(s => s.paymentStatus === 'verified')
+      .reduce((sum, s) => sum + (s.price || 0), 0)
+  }
+
+  const getSubscriptionStatusBadge = (status) => {
+    switch (status) {
+      case 'active':    return <Badge variant="success">Active</Badge>
+      case 'paused':    return <Badge variant="warning">Paused</Badge>
+      case 'completed': return <Badge variant="success">Completed</Badge>
+      case 'failed':    return <Badge variant="danger">Failed</Badge>
+      default:          return <Badge variant="primary">Pending</Badge>
+    }
   }
 
   const handleDownloadInvoice = (order) => {
@@ -129,7 +169,7 @@ export default function Payments() {
             <div class="details">
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
               <p><strong>Customer Name:</strong> ${order.customerName}</p>
-              <p><strong>Date:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
+              <p><strong>Date:</strong> ${formatDateTime(order.createdAt)}</p>
               <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
               <p><strong>Payment Status:</strong> ${order.paymentStatus.toUpperCase()}</p>
             </div>
@@ -224,7 +264,7 @@ export default function Payments() {
                     {orders.map((pay) => (
                       <tr key={pay.id} className="border-b border-emerald-50/50 last:border-0 font-medium">
                         <td className="py-4 text-text-dark font-bold">{pay.orderNumber}</td>
-                        <td className="py-4 text-gray-500">{new Date(pay.updatedAt).toLocaleDateString()}</td>
+                        <td className="py-4 text-gray-500">{formatDate(pay.updatedAt)}</td>
                         <td className="py-4 text-gray-700">
                           <p className="font-semibold">{pay.customerName}</p>
                           <p className="text-[10px] text-gray-400">{pay.customerPhone || '—'}</p>
@@ -281,19 +321,21 @@ export default function Payments() {
 
   // ─── CUSTOMER VIEW ──────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-8 text-left w-full">
-      <div>
-        <h1 className="text-2xl font-bold text-text-dark">Billing & Payments</h1>
-        <p className="text-sm text-gray-500">Review all payments, invoices, and spent logs.</p>
+    <div className="flex flex-col gap-8 text-left w-full pb-16">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-primary tracking-tight">Billing & Payments</h1>
+          <p className="text-sm text-gray-500 font-medium">Review all payments, invoices, and spent logs.</p>
+        </div>
       </div>
 
-      {/* Spend Stats */}
+      {/* Spend Stats Cards */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
-          {[...Array(2)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="flex items-center gap-4 p-5 bg-white border border-emerald-50 rounded-3xl shadow-sm">
               <div className="w-14 h-14 bg-gray-100 rounded-2xl shrink-0"></div>
-              <div>
+              <div className="flex-1">
                 <div className="h-3 w-32 bg-gray-100 rounded-lg mb-2"></div>
                 <div className="h-7 w-24 bg-gray-200 rounded-xl"></div>
               </div>
@@ -301,84 +343,249 @@ export default function Payments() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="flex items-center gap-4 hover:translate-y-0" hoverable={false}>
-            <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-2xl"><DollarSign className="w-6 h-6" /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Card 1: Daily Orders */}
+          <Card className="flex items-center gap-4 border border-emerald-50 bg-white !p-5 hover:translate-y-0.5" hoverable={false}>
+            <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-2xl shrink-0">
+              <ShoppingBag className="w-6 h-6" />
+            </div>
             <div>
-              <p className="text-xs text-gray-400 font-semibold">Total Spent This Month</p>
-              <p className="text-2xl font-bold text-text-dark">PKR {getMonthlySpend()}</p>
+              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">Daily Orders Spent</p>
+              <p className="text-xl sm:text-2xl font-black text-text-dark">PKR {getDailyOrdersMonthly().toLocaleString()}</p>
+              <p className="text-[10px] text-gray-400 font-semibold mt-0.5">PKR {getDailyOrdersAllTime().toLocaleString()} All-time</p>
             </div>
           </Card>
-          <Card className="flex items-center gap-4 hover:translate-y-0" hoverable={false}>
-            <div className="p-3.5 bg-sky-50 text-sky-600 rounded-2xl"><CreditCard className="w-6 h-6" /></div>
+
+          {/* Card 2: Subscription Payments */}
+          <Card className="flex items-center gap-4 border border-emerald-50 bg-white !p-5 hover:translate-y-0.5" hoverable={false}>
+            <div className="p-3.5 bg-amber-50 text-amber-650 rounded-2xl shrink-0">
+              <CreditCard className="w-6 h-6" />
+            </div>
             <div>
-              <p className="text-xs text-gray-400 font-semibold">Active Payment Mode</p>
-              <p className="text-lg font-bold text-text-dark">{getPaymentMode()}</p>
+              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">Spent on Subscriptions</p>
+              <p className="text-xl sm:text-2xl font-black text-text-dark">PKR {getSubMonthlySpend().toLocaleString()}</p>
+              <p className="text-[10px] text-gray-400 font-semibold mt-0.5">PKR {getSubAllTime().toLocaleString()} All-time</p>
+            </div>
+          </Card>
+
+          {/* Card 3: Active Subscription Plan */}
+          <Card className="flex items-center gap-4 border border-emerald-50 bg-white !p-5 hover:translate-y-0.5 sm:col-span-2 lg:col-span-1" hoverable={false}>
+            <div className="p-3.5 bg-rose-50 text-rose-600 rounded-2xl shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">Active Subscription Price</p>
+              {activeSub ? (
+                <>
+                  <p className="text-xl sm:text-2xl font-black text-rose-700">
+                    PKR {activeSub.price?.toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-rose-600 font-extrabold uppercase mt-0.5">
+                    {activeSub.planType.toUpperCase()} PLAN ACTIVE
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xl sm:text-2xl font-black text-gray-400">N/A</p>
+                  <p className="text-[10px] text-gray-400 font-semibold mt-0.5">No Active Subscription</p>
+                </>
+              )}
             </div>
           </Card>
         </div>
       )}
 
-      {/* Payment History */}
-      <Card className="p-8 hover:translate-y-0" hoverable={false}>
-        <h3 className="font-bold text-text-dark text-base border-b border-emerald-50 pb-3 mb-6">Transaction Logs</h3>
-        {loading ? (
-          <div className="flex flex-col gap-3 animate-pulse py-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex gap-4 items-center border-b border-emerald-50 pb-3">
-                <div className="h-4 w-20 bg-gray-200 rounded-lg"></div>
-                <div className="h-4 w-24 bg-gray-100 rounded-lg"></div>
-                <div className="h-4 w-40 bg-gray-100 rounded-lg flex-1"></div>
-                <div className="h-4 w-16 bg-gray-200 rounded-lg"></div>
-                <div className="h-5 w-20 bg-gray-100 rounded-full"></div>
-                <div className="h-5 w-16 bg-gray-100 rounded-full"></div>
-                <div className="h-6 w-6 bg-gray-100 rounded-lg ml-auto"></div>
+      {/* Transaction & Subscription Payment Logs */}
+      <div className="flex flex-col gap-6">
+        {/* Tab switchers */}
+        <div className="flex gap-2 border-b border-emerald-50 pb-px">
+          <button
+            onClick={() => setCustomerTab('daily')}
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+              customerTab === 'daily'
+                ? 'border-primary text-primary font-black'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Daily Orders Payments
+          </button>
+          <button
+            onClick={() => setCustomerTab('subscription')}
+            className={`px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+              customerTab === 'subscription'
+                ? 'border-primary text-primary font-black'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Subscription Payments
+          </button>
+        </div>
+
+        {/* List Card Container */}
+        <Card className="!p-4 sm:!p-8 hover:translate-y-0 border border-emerald-100" hoverable={false}>
+          {loading ? (
+            <div className="flex flex-col gap-3 animate-pulse py-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex gap-4 items-center border-b border-emerald-50 pb-3">
+                  <div className="h-4 w-20 bg-gray-200 rounded-lg"></div>
+                  <div className="h-4 w-24 bg-gray-100 rounded-lg"></div>
+                  <div className="h-4 w-40 bg-gray-100 rounded-lg flex-1"></div>
+                  <div className="h-4 w-16 bg-gray-200 rounded-lg"></div>
+                  <div className="h-5 w-20 bg-gray-100 rounded-full"></div>
+                  <div className="h-5 w-16 bg-gray-100 rounded-full"></div>
+                </div>
+              ))}
+            </div>
+          ) : customerTab === 'daily' ? (
+            <>
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden md:block overflow-x-auto w-full">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-emerald-50 text-gray-400 font-semibold">
+                      <th className="pb-3 text-xs uppercase tracking-wider">Order No</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Date</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Meal Items</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Amount</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Method</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Status</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider text-right">Invoice</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((pay) => {
+                      const itemsStr = Array.isArray(pay.items)
+                        ? pay.items.map(i => `${i.name} (Qty: ${i.quantity})`).join(', ')
+                        : 'Tiffin Meal'
+                      return (
+                        <tr key={pay.id} className="border-b border-emerald-50/50 last:border-0 font-medium">
+                          <td className="py-4 text-text-dark font-bold">{pay.orderNumber}</td>
+                          <td className="py-4 text-gray-500">{formatDate(pay.createdAt)}</td>
+                          <td className="py-4 text-gray-700 truncate max-w-xs">{itemsStr}</td>
+                          <td className="py-4 text-primary font-bold">PKR {pay.billingTotal}</td>
+                          <td className="py-4"><Badge variant="primary">{pay.paymentMethod}</Badge></td>
+                          <td className="py-4">{getStatusBadge(pay.paymentStatus)}</td>
+                          <td className="py-4 text-right">
+                            <button onClick={() => handleDownloadInvoice(pay)} className="p-1.5 rounded-xl hover:bg-accent-light text-primary transition-all cursor-pointer" aria-label="Download Invoice">
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {orders.length === 0 && (
+                  <p className="text-gray-400 py-12 text-center text-sm font-medium">No transactions found.</p>
+                )}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-emerald-50 text-gray-400 font-semibold">
-                  <th className="pb-3 text-xs uppercase tracking-wider">Order No</th>
-                  <th className="pb-3 text-xs uppercase tracking-wider">Date</th>
-                  <th className="pb-3 text-xs uppercase tracking-wider">Meal Items</th>
-                  <th className="pb-3 text-xs uppercase tracking-wider">Amount</th>
-                  <th className="pb-3 text-xs uppercase tracking-wider">Method</th>
-                  <th className="pb-3 text-xs uppercase tracking-wider">Status</th>
-                  <th className="pb-3 text-xs uppercase tracking-wider text-right">Invoice</th>
-                </tr>
-              </thead>
-              <tbody>
+
+              {/* MOBILE LIST VIEW */}
+              <div className="md:hidden flex flex-col gap-4">
                 {orders.map((pay) => {
                   const itemsStr = Array.isArray(pay.items)
                     ? pay.items.map(i => `${i.name} (Qty: ${i.quantity})`).join(', ')
                     : 'Tiffin Meal'
                   return (
-                    <tr key={pay.id} className="border-b border-emerald-50/50 last:border-0 font-medium">
-                      <td className="py-4 text-text-dark font-bold">{pay.orderNumber}</td>
-                      <td className="py-4 text-gray-500">{new Date(pay.createdAt).toLocaleDateString()}</td>
-                      <td className="py-4 text-gray-700 truncate max-w-xs">{itemsStr}</td>
-                      <td className="py-4 text-primary font-bold">PKR {pay.billingTotal}</td>
-                      <td className="py-4"><Badge variant="primary">{pay.paymentMethod}</Badge></td>
-                      <td className="py-4">{getStatusBadge(pay.paymentStatus)}</td>
-                      <td className="py-4 text-right">
-                        <button onClick={() => handleDownloadInvoice(pay)} className="p-1.5 rounded-xl hover:bg-accent-light text-primary transition-all cursor-pointer" aria-label="Download Invoice">
-                          <Download className="w-4 h-4" />
+                    <div key={pay.id} className="p-4 rounded-2xl border border-emerald-50 bg-white flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-text-dark">{pay.orderNumber}</span>
+                        <div className="flex gap-1.5">
+                          <Badge variant="primary" className="text-[10px]">{pay.paymentMethod}</Badge>
+                          {getStatusBadge(pay.paymentStatus)}
+                        </div>
+                      </div>
+                      <div className="text-xs font-semibold text-gray-500">
+                        <p className="line-clamp-2">{itemsStr}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{formatDateTime(pay.createdAt)}</p>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-emerald-50/50 pt-2.5 mt-0.5">
+                        <span className="text-sm font-black text-primary">PKR {pay.billingTotal}</span>
+                        <button onClick={() => handleDownloadInvoice(pay)} className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline" aria-label="Download Invoice">
+                          <Download className="w-3.5 h-3.5" />
+                          Invoice
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
-            {orders.length === 0 && (
-              <p className="text-gray-400 py-12 text-center text-sm font-medium">No transactions found.</p>
-            )}
-          </div>
-        )}
-      </Card>
+                {orders.length === 0 && (
+                  <p className="text-gray-400 py-12 text-center text-sm font-medium">No transactions found.</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden md:block overflow-x-auto w-full">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-emerald-50 text-gray-400 font-semibold">
+                      <th className="pb-3 text-xs uppercase tracking-wider">Plan Type</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Date Purchased</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Details</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Amount</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider">Payment Status</th>
+                      <th className="pb-3 text-xs uppercase tracking-wider text-right">Plan Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(user?.subscriptions || []).map((sub) => {
+                      return (
+                        <tr key={sub.id} className="border-b border-emerald-50/50 last:border-0 font-medium">
+                          <td className="py-4 text-text-dark font-bold capitalize">
+                            {sub.planType} Subscription {sub.isCompany && <span className="text-[10px] text-amber-600 block">(Company Tender)</span>}
+                          </td>
+                          <td className="py-4 text-gray-500">{formatDate(sub.createdAt)}</td>
+                          <td className="py-4 text-gray-700 text-xs">
+                            <p className="font-semibold">Meals Remaining: {sub.mealsRemaining}</p>
+                            <p className="text-[10px] text-gray-400 font-medium">Expiry: {formatDate(sub.endDate)}</p>
+                          </td>
+                          <td className="py-4 text-primary font-bold">PKR {sub.price?.toLocaleString()}</td>
+                          <td className="py-4">{getStatusBadge(sub.paymentStatus)}</td>
+                          <td className="py-4 text-right">{getSubscriptionStatusBadge(sub.status)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {(user?.subscriptions || []).length === 0 && (
+                  <p className="text-gray-400 py-12 text-center text-sm font-medium">No subscription payments found.</p>
+                )}
+              </div>
+
+              {/* MOBILE LIST VIEW */}
+              <div className="md:hidden flex flex-col gap-4">
+                {(user?.subscriptions || []).map((sub) => {
+                  return (
+                    <div key={sub.id} className="p-4 rounded-2xl border border-emerald-50 bg-white flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-text-dark capitalize">{sub.planType} Plan</span>
+                        <div className="flex gap-1.5">
+                          {getStatusBadge(sub.paymentStatus)}
+                          {getSubscriptionStatusBadge(sub.status)}
+                        </div>
+                      </div>
+                      <div className="text-xs font-semibold text-gray-500 flex flex-col gap-0.5">
+                        <p>Meals Remaining: {sub.mealsRemaining}</p>
+                        <p className="text-[10px] text-gray-400">Expiry Date: {formatDate(sub.endDate)}</p>
+                        {sub.isCompany && <p className="text-[10px] text-amber-600 font-bold">Company Tender ({sub.workerCount} workers)</p>}
+                        <p className="text-[10px] text-gray-450 mt-1">{formatDateTime(sub.createdAt)}</p>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-emerald-50/50 pt-2.5 mt-0.5">
+                        <span className="text-sm font-black text-primary">PKR {sub.price?.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {(user?.subscriptions || []).length === 0 && (
+                  <p className="text-gray-400 py-12 text-center text-sm font-medium">No subscription payments found.</p>
+                )}
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
     </div>
   )
 }

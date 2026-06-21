@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { useToastStore } from '../../store/toastStore'
+import { formatDate, formatDateTime } from '../../services/dateFormatter'
 import { Calendar, Users, Sliders, Edit, CheckCircle, Pause, AlertCircle, RefreshCw, XCircle, DollarSign, Eye, Loader2, Play, X, MoreVertical, Mail, Phone, User, Info, Truck, Search, Download } from 'lucide-react'
 import Pagination from '../../components/ui/Pagination'
 import { jsPDF } from 'jspdf'
@@ -311,7 +312,7 @@ export default function SubscriptionsManager() {
 
     doc.setFontSize(10)
     doc.setTextColor(100, 100, 100)
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26)
+    doc.text(`Generated on: ${formatDateTime(new Date())}`, 14, 26)
     doc.text(`Total Subscribers: ${subscriptions.length}`, 14, 32)
 
     const headers = [['Subscriber/Company', 'Contact Phone', 'Plan Type', 'Price', 'Meals Left', 'End Date', 'Type', 'Status']]
@@ -323,7 +324,7 @@ export default function SubscriptionsManager() {
         sub.planType.toUpperCase(),
         `PKR ${sub.price}`,
         String(sub.mealsRemaining),
-        new Date(sub.endDate).toLocaleDateString(),
+        formatDate(sub.endDate),
         sub.isCompany ? 'CORPORATE' : 'INDIVIDUAL',
         sub.status.toUpperCase()
       ]
@@ -588,7 +589,7 @@ export default function SubscriptionsManager() {
                         </p>
                         <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3.5 h-3.5 text-primary" />
-                          <span>Duration: {new Date(sub.startDate).toLocaleDateString()} &rarr; {new Date(sub.endDate).toLocaleDateString()}</span>
+                          <span>Duration: {formatDate(sub.startDate)} &rarr; {formatDate(sub.endDate)}</span>
                         </p>
                       </div>
 
@@ -1035,7 +1036,7 @@ export default function SubscriptionsManager() {
                 <div>
                   <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Plan Duration Range</span>
                   <span className="text-xs font-bold text-text-dark mt-2 block">
-                    {new Date(selectedSub.startDate).toLocaleDateString()} &rarr; {new Date(selectedSub.endDate).toLocaleDateString()}
+                    {formatDate(selectedSub.startDate)} &rarr; {formatDate(selectedSub.endDate)}
                   </span>
                 </div>
 

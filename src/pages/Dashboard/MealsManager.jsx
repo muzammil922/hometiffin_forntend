@@ -6,13 +6,14 @@ import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
+import { formatDateTime } from '../../services/dateFormatter'
 import { Plus, Trash, Pencil, CheckSquare, Square, Star, Search, X, Download } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const CATEGORIES = ['Lunch', 'Dinner', 'Highlight', 'Daily Special']
+const CATEGORIES = ['Breakfast', 'Lunch', 'Dinner', 'Highlight', 'Daily Special', 'Desserts', 'Beverages & Extras']
 
 const DEFAULT_LIMIT = 20
 
@@ -26,6 +27,82 @@ const emptyForm = {
   tagsInput: '',
   weeklyDays: [],
   isAvailable: true,
+}
+
+// ─── MealFormFields extracted OUTSIDE MealsManager to prevent re-mount on every keystroke ───
+function MealFormFields({ form, setField, editingMeal, handleToggleDay }) {
+  return (
+    <div className="flex flex-col gap-4 text-left">
+      <Input label="Meal Name *" placeholder="e.g. Special Chicken Biryani" value={form.name} onChange={(e) => setField('name', e.target.value)} required />
+      <Input label="Description *" type="textarea" placeholder="Describe the ingredients..." value={form.description} onChange={(e) => setField('description', e.target.value)} required />
+      <Input label="Price (Rs) *" type="number" placeholder="380" value={form.price} onChange={(e) => setField('price', e.target.value)} required />
+
+      <div>
+        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Meal Image {!editingMeal && '*'}</label>
+        <div className="flex flex-col gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => { setField('imageFile', e.target.files[0]); setField('imageUrl', '') }}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+          />
+          {editingMeal && form.imageUrl && !form.imageFile && (
+            <div className="flex items-center gap-2">
+              <img src={form.imageUrl} alt="current" className="w-16 h-16 object-cover rounded-xl border border-emerald-100" />
+              <span className="text-xs text-gray-400">Current image (upload new to replace)</span>
+            </div>
+          )}
+          {!form.imageFile && (
+            <Input placeholder="Or paste Image URL" value={form.imageUrl} onChange={(e) => { setField('imageUrl', e.target.value); setField('imageFile', null) }} />
+          )}
+        </div>
+      </div>
+
+      <Input label="Tags (comma-separated)" placeholder="Spicy, Beef, Rice, Best Seller" value={form.tagsInput} onChange={(e) => setField('tagsInput', e.target.value)} />
+
+      <div>
+        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Menu Category *</label>
+        <div className="grid grid-cols-2 gap-2">
+          {CATEGORIES.map((cat) => (
+            <button key={cat} type="button" onClick={() => setField('category', cat)}
+              className={`py-2 px-4 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 ${form.category === cat ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+              {cat === 'Highlight' && <Star className="w-3.5 h-3.5" />} {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Availability</label>
+        <div className="flex gap-3">
+          <button type="button" onClick={() => setField('isAvailable', true)}
+            className={`py-2 px-5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${form.isAvailable ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-500 border-gray-200'}`}>
+            Available
+          </button>
+          <button type="button" onClick={() => setField('isAvailable', false)}
+            className={`py-2 px-5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${!form.isAvailable ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-gray-500 border-gray-200'}`}>
+            Out of Stock
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Weekly Days Available</label>
+        <div className="flex flex-wrap gap-2">
+          {DAYS_OF_WEEK.map((day) => {
+            const selected = form.weeklyDays.includes(day)
+            return (
+              <button key={day} type="button" onClick={() => handleToggleDay(day)}
+                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${selected ? 'bg-emerald-50 text-primary border-primary font-bold' : 'bg-white text-gray-500 border-gray-200'}`}>
+                {selected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                {day}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function MealsManager() {
@@ -189,7 +266,7 @@ export default function MealsManager() {
 
     doc.setFontSize(10)
     doc.setTextColor(100, 100, 100)
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26)
+    doc.text(`Generated on: ${formatDateTime(new Date())}`, 14, 26)
     doc.text(`Total Meals: ${meals.length}`, 14, 32)
 
     const headers = [['Meal Name', 'Category', 'Price', 'Weekly Days', 'Stock Status', 'Tags']]
@@ -242,78 +319,6 @@ export default function MealsManager() {
     setPage(1)
   }
 
-  const MealFormFields = () => (
-    <div className="flex flex-col gap-4 text-left">
-      <Input label="Meal Name *" placeholder="e.g. Special Chicken Biryani" value={form.name} onChange={(e) => setField('name', e.target.value)} required />
-      <Input label="Description *" type="textarea" placeholder="Describe the ingredients..." value={form.description} onChange={(e) => setField('description', e.target.value)} required />
-      <Input label="Price (Rs) *" type="number" placeholder="380" value={form.price} onChange={(e) => setField('price', e.target.value)} required />
-
-      <div>
-        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Meal Image {!editingMeal && '*'}</label>
-        <div className="flex flex-col gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => { setField('imageFile', e.target.files[0]); setField('imageUrl', '') }}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-          />
-          {editingMeal && form.imageUrl && !form.imageFile && (
-            <div className="flex items-center gap-2">
-              <img src={form.imageUrl} alt="current" className="w-16 h-16 object-cover rounded-xl border border-emerald-100" />
-              <span className="text-xs text-gray-400">Current image (upload new to replace)</span>
-            </div>
-          )}
-          {!form.imageFile && (
-            <Input placeholder="Or paste Image URL" value={form.imageUrl} onChange={(e) => { setField('imageUrl', e.target.value); setField('imageFile', null) }} />
-          )}
-        </div>
-      </div>
-
-      <Input label="Tags (comma-separated)" placeholder="Spicy, Beef, Rice, Best Seller" value={form.tagsInput} onChange={(e) => setField('tagsInput', e.target.value)} />
-
-      <div>
-        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Menu Category *</label>
-        <div className="grid grid-cols-2 gap-2">
-          {CATEGORIES.map((cat) => (
-            <button key={cat} type="button" onClick={() => setField('category', cat)}
-              className={`py-2 px-4 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold flex items-center justify-center gap-1.5 ${form.category === cat ? 'bg-primary text-white border-primary shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-              {cat === 'Highlight' && <Star className="w-3.5 h-3.5" />} {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Availability</label>
-        <div className="flex gap-3">
-          <button type="button" onClick={() => setField('isAvailable', true)}
-            className={`py-2 px-5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${form.isAvailable ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-500 border-gray-200'}`}>
-            Available
-          </button>
-          <button type="button" onClick={() => setField('isAvailable', false)}
-            className={`py-2 px-5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${!form.isAvailable ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-gray-500 border-gray-200'}`}>
-            Out of Stock
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2 block">Weekly Days Available</label>
-        <div className="flex flex-wrap gap-2">
-          {DAYS_OF_WEEK.map((day) => {
-            const selected = form.weeklyDays.includes(day)
-            return (
-              <button key={day} type="button" onClick={() => handleToggleDay(day)}
-                className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${selected ? 'bg-emerald-50 text-primary border-primary font-bold' : 'bg-white text-gray-500 border-gray-200'}`}>
-                {selected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                {day}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
 
   return (
     <div className="flex flex-col gap-8 text-left w-full">
@@ -330,7 +335,13 @@ export default function MealsManager() {
             <Download className="w-4 h-4 text-primary" />
             Export PDF
           </button>
-          <Button variant="primary" onClick={() => { setForm(emptyForm); setIsAddOpen(true) }}
+          <Button variant="primary" onClick={() => { 
+              setForm({ 
+                ...emptyForm, 
+                category: (filterCategory && filterCategory !== 'All') ? filterCategory : 'Lunch' 
+              }); 
+              setIsAddOpen(true); 
+            }}
             className="rounded-2xl font-bold px-6 py-3.5 flex items-center gap-2 shadow-subtle bg-primary text-white cursor-pointer">
             <Plus className="w-5 h-5" /> Add New Meal
           </Button>
@@ -461,7 +472,7 @@ export default function MealsManager() {
       {/* ── Add Meal Modal ── */}
       <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Create New Meal Item">
         <form onSubmit={handleAddSubmit} className="flex flex-col gap-4">
-          <MealFormFields />
+          <MealFormFields form={form} setField={setField} editingMeal={editingMeal} handleToggleDay={handleToggleDay} />
           <Button type="submit" variant="primary" isLoading={isSubmitting} className="w-full py-3.5 mt-2 rounded-2xl font-bold bg-primary text-white">
             Publish Meal
           </Button>
@@ -471,7 +482,7 @@ export default function MealsManager() {
       {/* ── Edit Meal Modal ── */}
       <Modal isOpen={isEditOpen} onClose={() => { setIsEditOpen(false); setEditingMeal(null); setForm(emptyForm) }} title={`Edit: ${editingMeal?.name || ''}`}>
         <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
-          <MealFormFields />
+          <MealFormFields form={form} setField={setField} editingMeal={editingMeal} handleToggleDay={handleToggleDay} />
           <Button type="submit" variant="primary" isLoading={isSubmitting} className="w-full py-3.5 mt-2 rounded-2xl font-bold bg-primary text-white">
             Save Changes
           </Button>

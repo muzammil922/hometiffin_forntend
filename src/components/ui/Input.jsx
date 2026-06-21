@@ -9,8 +9,10 @@ const formatDateDisplay = (dateStr) => {
   if (!dateStr) return 'Select Date';
   const dateObj = new Date(dateStr);
   if (isNaN(dateObj.getTime())) return dateStr;
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[dateObj.getMonth()]} ${dateObj.getDate()}, ${dateObj.getFullYear()}`;
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = monthNames[dateObj.getMonth()];
+  const year = dateObj.getFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 const Input = forwardRef(({

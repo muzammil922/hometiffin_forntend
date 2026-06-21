@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
+import { formatDate, formatDateTime } from '../../services/dateFormatter'
 import { Users, Search, Filter, RefreshCw, Calendar, Mail, Phone, UserCheck, X, Download } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -158,7 +159,7 @@ export default function UsersManager() {
     // Add subtitle
     doc.setFontSize(10)
     doc.setTextColor(100, 100, 100)
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26)
+    doc.text(`Generated on: ${formatDateTime(new Date())}`, 14, 26)
     doc.text(`Total Users: ${users.length}`, 14, 32)
     
     const headers = [['User ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Registered']]
@@ -169,7 +170,7 @@ export default function UsersManager() {
       user.phone || 'N/A',
       user.role.toUpperCase(),
       user.isActive !== false ? 'ACTIVE' : 'SUSPENDED',
-      new Date(user.createdAt).toLocaleDateString()
+      formatDate(user.createdAt)
     ])
 
     autoTable(doc, {
@@ -358,7 +359,7 @@ export default function UsersManager() {
                     <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Registered Date</span>
                     <span className="text-xs font-semibold text-text-dark flex items-center gap-1.5 justify-start sm:justify-end mt-0.5 font-mono">
                       <Calendar className="w-3.5 h-3.5 text-primary" />
-                      {new Date(userObj.createdAt).toLocaleDateString()}
+                      {formatDate(userObj.createdAt)}
                     </span>
                   </div>
 

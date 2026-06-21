@@ -3,8 +3,8 @@ import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
-import { Phone, ArrowRight, Check, Star, MapPin, BookOpen, ChefHat, Bike, Heart, Sliders, ShieldCheck, Calendar, Truck } from 'lucide-react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Phone, ArrowRight, Check, Star, MapPin, BookOpen, ChefHat, Bike, Heart, Sliders, ShieldCheck, Calendar, Truck, Lock } from 'lucide-react'
 
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
@@ -18,6 +18,8 @@ import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import { useReviewStore } from '../store/reviewStore'
 import { useAuthStore } from '../store/authStore'
+import api from '../services/api'
+import { flyToCart } from '../services/flyToCart'
 
 // Zod Validation Schema for Order/Contact form
 const orderSchema = z.object({
@@ -67,11 +69,61 @@ const MOCK_MEALS = [
     description: 'Lightly spiced brown lentils served with steamed long-grain basmati rice and fresh kachumar salad.',
     image: '/cutout_biryani.png',
     tags: ['Diet', 'Steamed', 'Light']
+  },
+  {
+    id: 'm5',
+    name: 'Spicy Masala Egg Omelette',
+    category: 'Breakfast',
+    price: 120,
+    description: 'Two-egg omelette cooked with fresh green chilies, onions, coriander, and native spices. Served with paratha.',
+    image: '/cutout_burger.png',
+    tags: ['Spicy', 'Omelette', 'Breakfast']
+  },
+  {
+    id: 'm6',
+    name: 'Shahi Kheer Special',
+    category: 'Desserts',
+    price: 150,
+    description: 'Traditional slow-cooked rice pudding infused with cardamom and topped with almonds and pistachios.',
+    image: '/cutout_biryani.png',
+    tags: ['Dessert', 'Traditional', 'Sweet']
+  },
+  {
+    id: 'm7',
+    name: 'Chilled Pepsi 345ml',
+    category: 'Beverages & Extras',
+    price: 90,
+    description: 'Chilled Pepsi bottle to perfectly complement your warm home-cooked tiffin meal.',
+    image: '/cutout_burger.png',
+    tags: ['Beverage', 'Chilled', 'Refresh']
+  },
+  {
+    id: 'm8',
+    name: 'Mint Raita & Fresh Salad',
+    category: 'Beverages & Extras',
+    price: 80,
+    description: 'Cool mint yogurt sauce alongside fresh garden salad to complement your main course.',
+    image: '/cutout_karahi.png',
+    tags: ['Sides', 'Healthy', 'Fresh']
   }
 ]
 
 export default function Home() {
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.substring(1)
+      const element = document.getElementById(id)
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth' })
+        }, 100)
+      }
+    }
+  }, [location])
+
   const { addItem } = useCartStore()
   const { addToast } = useToastStore()
   const { isAuthenticated } = useAuthStore()
@@ -86,6 +138,9 @@ export default function Home() {
   // Pricing toggles
   const [isSubscription, setIsSubscription] = useState(false)
   const [activeTab, setActiveTab] = useState('All')
+  const [activePopularTab, setActivePopularTab] = useState('All')
+  const [meals, setMeals] = useState([])
+  const [loadingMeals, setLoadingMeals] = useState(true)
 
   // Testimonials Zustand Store hook
   const { testimonials, addReview, fetchReviews, initSocket, disconnectSocket } = useReviewStore()
@@ -97,6 +152,27 @@ export default function Home() {
       disconnectSocket()
     }
   }, [fetchReviews, initSocket, disconnectSocket])
+
+  useEffect(() => {
+    const fetchActiveMeals = async () => {
+      try {
+        setLoadingMeals(true)
+        const res = await api.get('/meals')
+        const mapped = res.data.map(meal => ({
+          ...meal,
+          image: meal.imageUrl,
+          availableDays: meal.weeklyDays
+        }))
+        setMeals(mapped)
+      } catch (err) {
+        console.error('Failed to load menu items:', err)
+        addToast('Failed to load menu items.', 'error')
+      } finally {
+        setLoadingMeals(false)
+      }
+    }
+    fetchActiveMeals()
+  }, [addToast])
 
   // Review modal states
   const [isReviewOpen, setIsReviewOpen] = useState(false)
@@ -154,15 +230,19 @@ export default function Home() {
     setIsCustomizeOpen(true)
   }
 
-  const handleAddCustomizedToCart = () => {
-    addItem(selectedMeal, { portionSize, addOns, notes: customNotes })
-    addToast(`${selectedMeal.name} added to cart!`, 'success')
+  const handleAddCustomizedToCart = (event) => {
+    flyToCart(event, selectedMeal?.image || '/cutout_biryani.png', () => {
+      addItem(selectedMeal, { portionSize, addOns, notes: customNotes })
+      addToast(`${selectedMeal.name} added to cart!`, 'success')
+    })
     setIsCustomizeOpen(false)
   }
 
-  const handleQuickAdd = (meal) => {
-    addItem(meal)
-    addToast(`${meal.name} added to cart!`, 'success')
+  const handleQuickAdd = (meal, event) => {
+    flyToCart(event, meal.image || '/cutout_biryani.png', () => {
+      addItem(meal)
+      addToast(`${meal.name} added to cart!`, 'success')
+    })
   }
 
   const handleOrderSubmit = (data) => {
@@ -177,6 +257,10 @@ export default function Home() {
   const filteredMeals = activeTab === 'All'
     ? MOCK_MEALS
     : MOCK_MEALS.filter(m => m.category === activeTab || (activeTab === 'Weekly Plan' && m.id === 'm1'))
+
+  const filteredPopularMeals = activePopularTab === 'All'
+    ? meals
+    : meals.filter(m => m.category === activePopularTab)
 
   return (
     <div className="min-h-screen bg-background">
@@ -358,81 +442,132 @@ export default function Home() {
         <div className="absolute top-1/3 right-0 w-80 h-80 rounded-full bg-emerald-50 blur-3xl pointer-events-none" />
 
         <div className="max-w-7xl mx-auto relative z-10">
-          <span className="text-xs font-extrabold text-primary uppercase tracking-widest bg-accent/35 px-4 py-1.5 rounded-full mb-4 inline-block">
-            Menu Highlights
-          </span>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-primary mb-3">
-            Our Popular Dishes
-          </h2>
-          <p className="text-sm text-gray-500 max-w-xl mx-auto mb-10 leading-relaxed">
-            Take a look at our daily crowd favorites, prepared with pure hygiene and fresh home-cooked taste.
-          </p>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12 text-left">
+            <div>
+              <span className="text-xs font-extrabold text-primary uppercase tracking-widest bg-accent/35 px-4 py-1.5 rounded-full mb-3 inline-block">
+                Menu Highlights
+              </span>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-primary mb-3">
+                Our Popular Dishes
+              </h2>
+              <p className="text-sm text-gray-500 max-w-xl leading-relaxed">
+                Take a look at our daily crowd favorites, prepared with pure hygiene and fresh home-cooked taste.
+              </p>
+            </div>
 
-          <div className="flex gap-8 overflow-x-auto snap-x pb-8 pt-16 text-left scrollbar-none w-full scroll-smooth">
-            {MOCK_MEALS.map((meal) => (
-              <Card
-                key={'slider-' + meal.id}
-                className="relative flex-none w-[280px] md:w-[320px] flex flex-col justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md hover:shadow-xl transition-all duration-300 snap-center"
-              >
-                {/* Floating Centered Food Image */}
-                <img
-                  src={meal.image || '/cutout_biryani.png'}
-                  alt={meal.name}
-                  className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 object-contain mix-blend-multiply z-20 pointer-events-none"
-                />
+            {/* Filter Tabs */}
+            <div className="flex flex-nowrap overflow-x-auto scrollbar-none items-center gap-2 bg-background p-1.5 rounded-2xl border border-emerald-100 h-fit max-w-full lg:w-auto">
+              {['All', 'Breakfast', 'Lunch', 'Dinner', 'Desserts', 'Beverages & Extras'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActivePopularTab(tab)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all shrink-0 ${
+                    activePopularTab === tab ? 'bg-primary text-text-light shadow-subtle' : 'text-primary/75 hover:bg-emerald-50'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                <div>
-                  {/* Top Row: Category Badge & Customize Icon */}
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="bg-accent/25 text-primary px-2.5 py-1 rounded-xl text-[10px] font-extrabold tracking-wider uppercase">
-                      {meal.category}
-                    </span>
-                    <button
-                      onClick={() => handleCustomizeClick(meal)}
-                      className="p-1.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-accent/20 hover:text-primary transition-all border border-gray-100 shadow-sm cursor-pointer"
-                      title="Customize portion & addons"
-                    >
-                      <Sliders className="w-4 h-4 stroke-[2.5]" />
-                    </button>
+          <div className="flex overflow-x-auto scrollbar-none gap-6 pt-16 pb-8 -mx-6 px-6 w-[calc(100%+3rem)] md:mx-0 md:px-0 md:w-full md:gap-8 snap-x scroll-smooth text-left">
+            {loadingMeals ? (
+              [...Array(4)].map((_, idx) => (
+                <div key={'pop-skeleton-' + idx} className="relative flex-none w-[280px] md:w-[320px] flex flex-col justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md animate-pulse">
+                  <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 rounded-full bg-gray-100 border-4 border-white shadow-sm"></div>
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="h-5 w-16 bg-gray-100 rounded-xl"></div>
+                      <div className="h-8 w-8 bg-gray-100 rounded-xl"></div>
+                    </div>
+                    <div className="h-5 w-3/4 bg-gray-200 rounded-lg mb-2"></div>
+                    <div className="flex gap-1.5 mt-3.5 mb-3">
+                      <div className="h-4 w-12 bg-emerald-100 rounded-full"></div>
+                      <div className="h-4 w-12 bg-emerald-100 rounded-full"></div>
+                    </div>
+                    <div className="h-3 w-full bg-gray-100 rounded mb-1.5"></div>
+                    <div className="h-3 w-2/3 bg-gray-100 rounded"></div>
                   </div>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
+                    <div>
+                      <div className="h-3 w-10 bg-gray-100 rounded mb-1"></div>
+                      <div className="h-6 w-16 bg-gray-200 rounded-lg"></div>
+                    </div>
+                    <div className="h-9 w-24 bg-primary/20 rounded-xl animate-pulse"></div>
+                  </div>
+                </div>
+              ))
+            ) : filteredPopularMeals.length === 0 ? (
+              <p className="text-gray-400 py-12 text-center text-sm font-medium w-full">
+                No popular dishes found matching your filter.
+              </p>
+            ) : (
+              filteredPopularMeals.map((meal) => (
+                <Card
+                  key={'slider-' + meal.id}
+                  className="relative flex-none w-[280px] md:w-[320px] flex flex-col justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md hover:shadow-xl transition-all duration-300 snap-center"
+                >
+                  {/* Floating Centered Food Image */}
+                  <img
+                    src={meal.image || '/cutout_biryani.png'}
+                    alt={meal.name}
+                    className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 object-contain mix-blend-multiply z-20 pointer-events-none"
+                  />
 
-                  {/* Meal Title */}
-                  <h3 className="text-base font-bold text-text-dark mb-1 leading-snug">{meal.name}</h3>
-
-                  {/* Tags Row */}
-                  <div className="flex flex-wrap gap-1.5 mt-3.5 mb-3">
-                    {(meal.tags || ['Homestyle', 'Fresh', 'Popular']).map((tag) => (
-                      <span key={tag} className="bg-background text-primary border border-emerald-200/40 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                        {tag}
+                  <div>
+                    {/* Top Row: Category Badge & Customize Icon */}
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="bg-accent/25 text-primary px-2.5 py-1 rounded-xl text-[10px] font-extrabold tracking-wider uppercase">
+                        {meal.category}
                       </span>
-                    ))}
+                      <button
+                        onClick={() => handleCustomizeClick(meal)}
+                        className="p-1.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-accent/20 hover:text-primary transition-all border border-gray-100 shadow-sm cursor-pointer"
+                        title="Customize portion & addons"
+                      >
+                        <Sliders className="w-4 h-4 stroke-[2.5]" />
+                      </button>
+                    </div>
+
+                    {/* Meal Title */}
+                    <h3 className="text-base font-bold text-text-dark mb-1 leading-snug">{meal.name}</h3>
+
+                    {/* Tags Row */}
+                    <div className="flex flex-wrap gap-1.5 mt-3.5 mb-3">
+                      {(meal.tags || ['Homestyle', 'Fresh', 'Popular']).map((tag) => (
+                        <span key={tag} className="bg-background text-primary border border-emerald-200/40 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+                      {meal.description}{' '}
+                      <span className="text-primary font-bold hover:underline cursor-pointer">See more</span>
+                    </p>
                   </div>
 
-                  {/* Description */}
-                  <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
-                    {meal.description}{' '}
-                    <span className="text-primary font-bold hover:underline cursor-pointer">See more</span>
-                  </p>
-                </div>
+                  {/* Footer Row: Price, Add to Cart */}
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
+                    <div className="text-left">
+                      <span className="text-[10px] font-semibold text-gray-400 block leading-none mb-1">Price</span>
+                      <span className="text-base font-extrabold text-text-dark">Rs. {meal.price}</span>
+                    </div>
 
-                {/* Footer Row: Price, Add to Cart */}
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
-                  <div className="text-left">
-                    <span className="text-[10px] font-semibold text-gray-400 block leading-none mb-1">Price</span>
-                    <span className="text-base font-extrabold text-text-dark">Rs. {meal.price}</span>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={(e) => handleQuickAdd(meal, e)}
+                      className="rounded-xl px-5 py-2 font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      Add to Cart
+                    </Button>
                   </div>
-
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleQuickAdd(meal)}
-                    className="rounded-xl px-5 py-2 font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer"
-                  >
-                    Add to Cart
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -444,12 +579,9 @@ export default function Home() {
           Get healthy, hygienically prepared home-cooked meals delivered straight to your door in Karachi.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 relative z-10">
-          {/* Connecting Dotted Line - Desktop */}
-          <div className="absolute top-[55%] left-[12%] right-[12%] h-0.5 border-t-2 border-dashed border-primary/20 z-0 hidden md:block" />
-
-          {/* Connecting Dotted Line - Mobile */}
-          <div className="absolute left-1/2 top-12 bottom-12 w-0.5 border-l-2 border-dashed border-primary/20 -translate-x-1/2 z-0 md:hidden" />
+        <div className="flex overflow-x-auto scrollbar-none md:overflow-visible md:grid md:grid-cols-4 gap-6 md:gap-10 relative z-10 -mx-6 px-6 pt-12 pb-8 md:mx-0 md:px-4 w-[calc(100%+3rem)] md:w-full snap-x">
+          {/* Connecting Dotted Line */}
+          <div className="absolute top-[55%] left-[150px] w-[850px] md:left-[12%] md:right-[12%] md:w-auto h-0.5 border-t-2 border-dashed border-primary/20 z-0" />
 
           {[
             {
@@ -483,7 +615,7 @@ export default function Home() {
           ].map((step) => {
             const IconComponent = step.icon
             return (
-              <div key={step.num} className="relative group flex flex-col items-center pt-8">
+              <div key={step.num} className="relative group flex flex-col items-center pt-8 flex-none w-[260px] md:w-auto snap-center">
                 {/* Large Background Number - moves on top on hover */}
                 <span className={`absolute right-6 text-[95px] font-extrabold text-[#065f46]/[0.12] group-hover:text-primary/30 group-hover:z-20 transition-all duration-300 select-none font-sans z-0 pointer-events-none leading-none ${step.isBig ? 'top-[-36px]' : 'top-[-12px]'
                   }`}>
@@ -517,85 +649,111 @@ export default function Home() {
               <h2 className="text-3xl font-bold text-primary mb-2">Our Culinary Highlights</h2>
               <p className="text-gray-500">Delicious home-cooked specials prepared with love and hygiene.</p>
             </div>
-
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-2 bg-background p-1.5 rounded-2xl border border-emerald-100">
-              {['All', 'Breakfast', 'Lunch', 'Dinner', 'Weekly Plan'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer transition-all ${activeTab === tab ? 'bg-primary text-text-light shadow-subtle' : 'text-primary/75 hover:bg-emerald-50'
-                    }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 pt-14">
-            {filteredMeals.map((meal) => (
-              <Card key={meal.id} className="relative flex flex-col h-full text-left justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md hover:shadow-lg transition-all duration-300">
-                {/* Floating Centered Food Image - Larger, borderless, transparent blend */}
-                <img
-                  src={meal.image || '/cutout_biryani.png'}
-                  alt={meal.name}
-                  className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 object-contain mix-blend-multiply z-20 pointer-events-none"
-                />
-
-                <div>
-                  {/* Top Row: Category Badge & Customize Icon on Top Right */}
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="bg-accent/25 text-primary px-2.5 py-1 rounded-xl text-[10px] font-extrabold tracking-wider uppercase">
-                      {meal.category}
-                    </span>
-                    <button
-                      onClick={() => handleCustomizeClick(meal)}
-                      className="p-1.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-accent/20 hover:text-primary transition-all border border-gray-100 shadow-sm cursor-pointer"
-                      title="Customize portion & addons"
-                    >
-                      <Sliders className="w-4 h-4 stroke-[2.5]" />
-                    </button>
+          <div className="flex overflow-x-auto md:overflow-visible scrollbar-none gap-6 pt-14 pb-12 -mx-6 px-6 w-[calc(100%+3rem)] md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-8 md:w-full md:mx-0 md:px-0 snap-x">
+            {loadingMeals ? (
+              [...Array(4)].map((_, idx) => (
+                <div key={'high-skeleton-' + idx} className="relative flex flex-col h-full text-left justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md animate-pulse flex-none w-[280px] md:w-auto">
+                  <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 rounded-full bg-gray-100 border-4 border-white shadow-sm"></div>
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="h-5 w-16 bg-gray-100 rounded-xl"></div>
+                      <div className="h-8 w-8 bg-gray-100 rounded-xl"></div>
+                    </div>
+                    <div className="h-5 w-3/4 bg-gray-200 rounded-lg mb-2"></div>
+                    <div className="flex gap-1.5 mt-3.5 mb-3">
+                      <div className="h-4 w-12 bg-emerald-100 rounded-full"></div>
+                      <div className="h-4 w-12 bg-emerald-100 rounded-full"></div>
+                    </div>
+                    <div className="h-3 w-full bg-gray-100 rounded mb-1.5"></div>
+                    <div className="h-3 w-2/3 bg-gray-100 rounded"></div>
                   </div>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
+                    <div>
+                      <div className="h-3 w-10 bg-gray-100 rounded mb-1"></div>
+                      <div className="h-6 w-16 bg-gray-200 rounded-lg"></div>
+                    </div>
+                    <div className="h-9 w-24 bg-primary/20 rounded-xl animate-pulse"></div>
+                  </div>
+                </div>
+              ))
+            ) : meals.filter(m => m.category === 'Highlight').length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center py-20 px-4 text-center bg-emerald-50/50 rounded-3xl border border-emerald-100/50 backdrop-blur-sm relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-100/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                <div className="w-20 h-20 bg-white rounded-full shadow-sm flex items-center justify-center mb-6 relative z-10 border border-emerald-100">
+                  <Lock className="w-8 h-8 text-primary/40 group-hover:text-primary transition-colors duration-500" />
+                  <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite] opacity-20"></div>
+                </div>
+                <h3 className="text-xl font-bold text-text-dark mb-2 relative z-10">Chef's Highlights Coming Soon</h3>
+                <p className="text-gray-500 text-sm max-w-md mx-auto relative z-10 leading-relaxed">
+                  Our culinary team is currently curating exclusive signature dishes. 
+                  <span className="block mt-1 text-primary/60 font-medium">Check back soon for new premium additions!</span>
+                </p>
+              </div>
+            ) : (
+              meals.filter(m => m.category === 'Highlight').map((meal) => (
+                <Card key={meal.id} className="relative flex flex-col h-full text-left justify-between mt-12 pt-16 p-6 bg-white rounded-3xl border border-emerald-100/50 shadow-md hover:shadow-lg transition-all duration-300 flex-none w-[280px] md:w-auto snap-center">
+                  {/* Floating Centered Food Image - Larger, borderless, transparent blend */}
+                  <img
+                    src={meal.image || '/cutout_biryani.png'}
+                    alt={meal.name}
+                    className="absolute -top-16 left-1/2 -translate-x-1/2 w-28 h-28 md:w-32 md:h-32 object-contain mix-blend-multiply z-20 pointer-events-none"
+                  />
 
-                  {/* Meal Title */}
-                  <h3 className="text-lg font-bold text-text-dark mb-1 leading-snug">{meal.name}</h3>
-
-                  {/* Tags Row - using website background color for pills */}
-                  <div className="flex flex-wrap gap-1.5 mt-3.5 mb-3">
-                    {(meal.tags || ['Homestyle', 'Fresh', 'Popular']).map((tag) => (
-                      <span key={tag} className="bg-background text-primary border border-emerald-200/40 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                        {tag}
+                  <div>
+                    {/* Top Row: Category Badge & Customize Icon on Top Right */}
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="bg-accent/25 text-primary px-2.5 py-1 rounded-xl text-[10px] font-extrabold tracking-wider uppercase">
+                        {meal.category}
                       </span>
-                    ))}
+                      <button
+                        onClick={() => handleCustomizeClick(meal)}
+                        className="p-1.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-accent/20 hover:text-primary transition-all border border-gray-100 shadow-sm cursor-pointer"
+                        title="Customize portion & addons"
+                      >
+                        <Sliders className="w-4 h-4 stroke-[2.5]" />
+                      </button>
+                    </div>
+
+                    {/* Meal Title */}
+                    <h3 className="text-lg font-bold text-text-dark mb-1 leading-snug">{meal.name}</h3>
+
+                    {/* Tags Row - using website background color for pills */}
+                    <div className="flex flex-wrap gap-1.5 mt-3.5 mb-3">
+                      {(meal.tags || ['Homestyle', 'Fresh', 'Popular']).map((tag) => (
+                        <span key={tag} className="bg-background text-primary border border-emerald-200/40 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Description with See More */}
+                    <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
+                      {meal.description}{' '}
+                      <span className="text-primary font-bold hover:underline cursor-pointer">See more</span>
+                    </p>
                   </div>
 
-                  {/* Description with See More */}
-                  <p className="text-xs text-gray-500 leading-relaxed mb-1.5">
-                    {meal.description}{' '}
-                    <span className="text-primary font-bold hover:underline cursor-pointer">See more</span>
-                  </p>
-                </div>
+                  {/* Footer Row: Price, Add to Cart button */}
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
+                    <div className="text-left">
+                      <span className="text-xs font-semibold text-gray-400 block leading-none mb-1">Price</span>
+                      <span className="text-lg font-extrabold text-text-dark">Rs. {meal.price}</span>
+                    </div>
 
-                {/* Footer Row: Price, Add to Cart button */}
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-emerald-50">
-                  <div className="text-left">
-                    <span className="text-xs font-semibold text-gray-400 block leading-none mb-1">Price</span>
-                    <span className="text-lg font-extrabold text-text-dark">Rs. {meal.price}</span>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={(e) => handleQuickAdd(meal, e)}
+                      className="rounded-xl px-6 py-2.5 font-bold text-sm shadow-md hover:shadow-lg transition-all"
+                    >
+                      Add to Cart
+                    </Button>
                   </div>
-
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleQuickAdd(meal)}
-                    className="rounded-xl px-6 py-2.5 font-bold text-sm shadow-md hover:shadow-lg transition-all"
-                  >
-                    Add to Cart
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -693,7 +851,7 @@ export default function Home() {
             Write a Review
           </Button>
 
-          <div className="flex gap-6 overflow-x-auto snap-x pb-6 text-left scrollbar-none w-full scroll-smooth">
+          <div className="flex overflow-x-auto scrollbar-none gap-6 pt-4 pb-8 -mx-6 px-6 w-[calc(100%+3rem)] md:mx-0 md:px-0 md:w-full snap-x scroll-smooth text-left">
             {testimonials.slice(0, 10).map((test, index) => (
               <motion.div
                 key={test.name + index}
@@ -888,6 +1046,19 @@ export default function Home() {
                 <span className="text-xs font-extrabold text-primary uppercase tracking-widest bg-accent/35 px-4 py-1.5 rounded-full mb-3 inline-block">
                   Quick Order
                 </span>
+
+                {/* Mobile Only: Order via WhatsApp button */}
+                <div className="lg:hidden mb-4">
+                  <Button
+                    variant="primary"
+                    onClick={() => navigate('/quick-order')}
+                    className="w-full rounded-2xl py-3.5 font-bold shadow-md hover:shadow-lg transition-all text-xs uppercase tracking-widest cursor-pointer flex items-center justify-center gap-2 bg-primary text-white hover:bg-emerald-700"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Order via WhatsApp
+                  </Button>
+                </div>
+
                 <h2 className="text-3xl md:text-4xl font-extrabold text-primary leading-tight mt-1">
                   Place Your Order <br />
                   <span className="text-emerald-700">In Seconds</span>
@@ -938,7 +1109,7 @@ export default function Home() {
             </div>
 
             {/* Right Column: Premium Form Card */}
-            <div className="lg:col-span-7 bg-white border border-emerald-100/60 p-8 rounded-[36px] shadow-card animate-fade-in">
+            <div className="hidden lg:block lg:col-span-7 bg-white border border-emerald-100/60 p-8 rounded-[36px] shadow-card animate-fade-in">
               <h3 className="text-lg font-bold text-text-dark mb-6 border-b border-emerald-50 pb-3">Delivery Information</h3>
               <form onSubmit={handleSubmit(handleOrderSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
@@ -1061,7 +1232,7 @@ export default function Home() {
               onChange={(e) => setCustomNotes(e.target.value)}
             />
 
-            <Button variant="primary" onClick={handleAddCustomizedToCart} className="w-full mt-4">
+            <Button variant="primary" onClick={(e) => handleAddCustomizedToCart(e)} className="w-full mt-4">
               Add Customized Tiffin to Cart
             </Button>
           </div>
