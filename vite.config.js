@@ -9,8 +9,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: null,
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        navigateFallback: '/offline.html',
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}'],
+        // navigateFallback must point to index.html so React SPA loads on reload
+        // NOT offline.html — that was causing dashboard to show offline on reload
+        navigateFallback: '/index.html',
+        // Only apply navigateFallback to actual app routes, not API or asset URLs
+        navigateFallbackDenylist: [/^\/api/, /\.(?:js|css|png|svg|ico|jpg|jpeg|webp|json)$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -36,9 +40,10 @@ export default defineConfig({
           },
           {
             urlPattern: /^https:\/\/.*\/api\/.*/i,
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
+              networkTimeoutSeconds: 10,
               expiration: {
                 maxEntries: 50,
                 maxAgeSeconds: 60 * 60 * 24
