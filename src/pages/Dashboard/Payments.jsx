@@ -700,9 +700,9 @@ export default function Payments() {
                 })
 
                 // mealsUsed now comes from backend (computed in userController)
-                // fallback to subDeliveries.length if not available
-                const usedMeals   = sub.mealsUsed ?? subDeliveries.length
-                const totalMeals  = sub.totalMealsInPlan ?? (sub.mealsRemaining + usedMeals)
+                // fallback to subDeliveries.length * workerCount if not available
+                const usedMeals   = sub.mealsUsed ?? (subDeliveries.length * (sub.workerCount ?? 1))
+                const totalMeals  = sub.totalMealsInPlan ?? ((sub.mealsRemaining + subDeliveries.length) * (sub.workerCount ?? 1))
                 const perMealCost = sub.price > 0 && totalMeals > 0
                   ? Math.round(sub.price / totalMeals)
                   : 0

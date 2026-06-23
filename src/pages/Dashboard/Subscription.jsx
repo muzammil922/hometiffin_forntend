@@ -1045,10 +1045,10 @@ export default function Subscription() {
     ? `${subscription.companyName} Corporate Plan`
     : (subscription.planType === 'weekly' ? 'Weekly Tiffin Plan' : 'Monthly Tiffin Plan')
   const matchingPlan = plans.find(p => p.planType === subscription.planType)
-  const totalMeals = subscription.totalMealsInPlan
-    ?? (matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24))
+  const planTotalMeals = matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24)
+  const totalMeals = subscription.totalMealsInPlan ?? (planTotalMeals * (subscription.workerCount ?? 1))
   const usedMeals = subscription.mealsUsed
-    ?? Math.max(0, totalMeals - subscription.mealsRemaining)
+    ?? (Math.max(0, planTotalMeals - subscription.mealsRemaining) * (subscription.workerCount ?? 1))
   const progressPercent = totalMeals > 0 ? Math.round((usedMeals / totalMeals) * 100) : 0
   const renewalDate = subscription.endDate ? formatDate(subscription.endDate) : 'N/A'
 
@@ -1155,8 +1155,8 @@ export default function Subscription() {
             ? [
                 { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Corporate Weekly' : 'Corporate Monthly', icon: Building2, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
                 { label: 'Employees', value: `${subscription.workerCount} Employees`, icon: User, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
-                { label: 'Total Quota', value: totalMeals * subscription.workerCount, icon: Calendar, colorClass: 'bg-sky-50 text-sky-800 border-sky-100/50' },
-                { label: 'Meals Delivered', value: usedMeals * subscription.workerCount, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
+                { label: 'Total Quota', value: totalMeals, icon: Calendar, colorClass: 'bg-sky-50 text-sky-800 border-sky-100/50' },
+                { label: 'Meals Delivered', value: usedMeals, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
                 { label: 'Meals Remaining', value: subscription.mealsRemaining * subscription.workerCount, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
               ]
             : [
@@ -1187,19 +1187,15 @@ export default function Subscription() {
             <div>
               <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Meal Progress</p>
               <p className="text-xs font-bold text-text-dark">
-                {subscription.isCompany
-                  ? `${usedMeals * subscription.workerCount} meals delivered`
-                  : `${usedMeals} meals delivered`}
+                {`${usedMeals} meals delivered`}
               </p>
             </div>
             <div className="text-right">
               <span className="text-2xl font-black text-primary leading-none">
-                {subscription.isCompany
-                  ? `${usedMeals * subscription.workerCount}`
-                  : usedMeals}
+                {usedMeals}
               </span>
               <span className="text-xs font-bold text-gray-400 ml-1">
-                / {subscription.isCompany ? totalMeals * subscription.workerCount : totalMeals}
+                / {totalMeals}
               </span>
             </div>
           </div>
@@ -1231,13 +1227,16 @@ export default function Subscription() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 flex items-center gap-2">
-              {subscription.planType === 'monthly' && (
-                <>
-                  <span className="text-emerald-700">Day {usedMeals + 1} of 30</span>
-                  <span className="text-gray-300">•</span>
-                </>
-              )}
-              <span>{usedMeals} Completed • {subscription.mealsRemaining} Remaining</span>
+              {subscription.planType === 'monthly' && (() => {
+                const daysUsed = Math.max(0, planTotalMeals - subscription.mealsRemaining);
+                return (
+                  <>
+                    <span className="text-emerald-700">Day {daysUsed + 1} of 30</span>
+                    <span className="text-gray-300">•</span>
+                  </>
+                );
+              })()}
+              <span>{usedMeals} Completed • {totalMeals - usedMeals} Remaining</span>
             </span>
           </div>
         </div>
