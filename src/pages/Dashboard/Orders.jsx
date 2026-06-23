@@ -358,7 +358,7 @@ export default function Orders() {
     : (statusFilter ? orders.filter(o => o.status === statusFilter) : orders)
 
   return (
-    <div className="flex flex-col gap-8 text-left w-full">
+    <div className="flex flex-col gap-8 text-left w-full pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-dark">
@@ -698,9 +698,11 @@ export default function Orders() {
                         Customer: {order.customerName} ({order.customerPhone})
                       </p>
                     )}
-                    <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1 font-semibold">
-                      <Calendar className="w-3.5 h-3.5 text-primary" />
-                      <span>{formatDateTime(order.createdAt)}</span>
+                    <div className="flex items-center mt-1.5">
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-primary px-2.5 py-1 rounded-xl border border-emerald-100/60 text-[10.5px] font-bold">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        {formatDateTime(order.createdAt)}
+                      </span>
                     </div>
                   </div>
 

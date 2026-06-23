@@ -196,10 +196,9 @@ export default function Payments() {
     }
   }
 
-  // ─── ADMIN VIEW ──────────────────────────────────────────────
   if (user?.role === 'admin') {
     return (
-      <div className="flex flex-col gap-8 text-left w-full">
+      <div className="flex flex-col gap-8 text-left w-full pb-20">
         <div>
           <h1 className="text-2xl font-bold text-text-dark">Payment Verification</h1>
           <p className="text-sm text-gray-500">Review and verify customer payment screenshots submitted for Bank Transfer orders.</p>
@@ -481,29 +480,78 @@ export default function Payments() {
               </div>
 
               {/* MOBILE LIST VIEW */}
-              <div className="md:hidden flex flex-col gap-4">
+              <div className="md:hidden flex flex-col gap-4.5">
                 {orders.map((pay) => {
                   const itemsStr = Array.isArray(pay.items)
                     ? pay.items.map(i => `${i.name} (Qty: ${i.quantity})`).join(', ')
                     : 'Tiffin Meal'
+                  
+                  const isVerified = pay.paymentStatus === 'verified'
+                  const isSubmitted = pay.paymentStatus === 'submitted'
+                  const isFailed = pay.paymentStatus === 'failed'
+
+                  let cardBg = 'bg-white'
+                  let cardBorder = 'border-emerald-100/50'
+                  if (isVerified) {
+                    cardBg = 'bg-gradient-to-br from-emerald-50/30 to-white'
+                    cardBorder = 'border-emerald-100/55'
+                  } else if (isSubmitted) {
+                    cardBg = 'bg-gradient-to-br from-blue-50/20 to-white'
+                    cardBorder = 'border-blue-100/40'
+                  } else if (isFailed) {
+                    cardBg = 'bg-gradient-to-br from-rose-50/20 to-white'
+                    cardBorder = 'border-rose-100/40'
+                  } else {
+                    cardBg = 'bg-gradient-to-br from-amber-50/20 to-white'
+                    cardBorder = 'border-amber-100/40'
+                  }
+
                   return (
-                    <div key={pay.id} className="p-4 rounded-2xl border border-emerald-50 bg-white flex flex-col gap-3">
+                    <div
+                      key={pay.id}
+                      className={`p-4.5 rounded-3xl ${cardBg} flex flex-col gap-3.5 shadow-subtle transition-all`}
+                    >
+                      {/* Top Bar */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-text-dark">{pay.orderNumber}</span>
-                        <div className="flex gap-1.5">
-                          <Badge variant="primary" className="text-[10px]">{pay.paymentMethod}</Badge>
+                        <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-100/60 uppercase tracking-wider">
+                          {pay.orderNumber}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="primary" className="text-[9px] px-2 py-0.5 font-bold capitalize">
+                            {pay.paymentMethod}
+                          </Badge>
                           {getStatusBadge(pay.paymentStatus)}
                         </div>
                       </div>
-                      <div className="text-xs font-semibold text-gray-500">
-                        <p className="line-clamp-2">{itemsStr}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">{formatDateTime(pay.createdAt)}</p>
+
+                      {/* Items & Date */}
+                      <div className="text-xs font-semibold text-text-dark flex flex-col gap-2.5">
+                        <p className="line-clamp-2 text-gray-700 leading-relaxed font-semibold">
+                          {itemsStr}
+                        </p>
+                        <div className="flex items-center mt-1">
+                          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-primary px-2.5 py-1 rounded-xl border border-emerald-100/60 text-[10.5px] font-bold">
+                            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                            {formatDateTime(pay.createdAt)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between border-t border-emerald-50/50 pt-2.5 mt-0.5">
-                        <span className="text-sm font-black text-primary">PKR {pay.billingTotal}</span>
-                        <button onClick={() => handleDownloadInvoice(pay)} className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline" aria-label="Download Invoice">
+
+                      {/* Bottom Bar */}
+                      <div className="flex items-center justify-between pt-3 mt-1">
+                        <div className="flex flex-col text-left">
+                          <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Amount Paid</span>
+                          <span className="text-base font-black text-primary">
+                            PKR {pay.billingTotal.toLocaleString()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleDownloadInvoice(pay)}
+                          className="flex items-center gap-1.5 text-xs font-black text-white bg-primary px-3.5 py-2 rounded-xl hover:bg-primary/90 transition-all cursor-pointer shadow-subtle"
+                          aria-label="Download Invoice"
+                        >
                           <Download className="w-3.5 h-3.5" />
-                          Invoice
+                          <span>Invoice</span>
                         </button>
                       </div>
                     </div>
@@ -555,25 +603,83 @@ export default function Payments() {
               </div>
 
               {/* MOBILE LIST VIEW */}
-              <div className="md:hidden flex flex-col gap-4">
+              <div className="md:hidden flex flex-col gap-4.5">
                 {(user?.subscriptions || []).map((sub) => {
+                  const isVerified = sub.paymentStatus === 'verified'
+                  const isSubmitted = sub.paymentStatus === 'submitted'
+                  const isFailed = sub.paymentStatus === 'failed'
+
+                  let cardBg = 'bg-white'
+                  let cardBorder = 'border-emerald-100/50'
+                  if (isVerified) {
+                    cardBg = 'bg-gradient-to-br from-emerald-50/30 to-white'
+                    cardBorder = 'border-emerald-100/55'
+                  } else if (isSubmitted) {
+                    cardBg = 'bg-gradient-to-br from-blue-50/20 to-white'
+                    cardBorder = 'border-blue-100/40'
+                  } else if (isFailed) {
+                    cardBg = 'bg-gradient-to-br from-rose-50/20 to-white'
+                    cardBorder = 'border-rose-100/40'
+                  } else {
+                    cardBg = 'bg-gradient-to-br from-amber-50/20 to-white'
+                    cardBorder = 'border-amber-100/40'
+                  }
+
                   return (
-                    <div key={sub.id} className="p-4 rounded-2xl border border-emerald-50 bg-white flex flex-col gap-3">
+                    <div
+                      key={sub.id}
+                      className={`p-4.5 rounded-3xl ${cardBg} flex flex-col gap-3.5 shadow-subtle transition-all`}
+                    >
+                      {/* Top Bar */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-text-dark capitalize">{sub.planType} Plan</span>
-                        <div className="flex gap-1.5">
+                        <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-100/60 uppercase tracking-wider capitalize">
+                          {sub.planType} Subscription Plan
+                        </span>
+                        <div className="flex items-center gap-1.5">
                           {getStatusBadge(sub.paymentStatus)}
-                          {getSubscriptionStatusBadge(sub.status)}
                         </div>
                       </div>
-                      <div className="text-xs font-semibold text-gray-500 flex flex-col gap-0.5">
-                        <p>Meals Remaining: {sub.mealsRemaining}</p>
-                        <p className="text-[10px] text-gray-400">Expiry Date: {formatDate(sub.endDate)}</p>
-                        {sub.isCompany && <p className="text-[10px] text-amber-600 font-bold">Company Tender ({sub.workerCount} workers)</p>}
-                        <p className="text-[10px] text-gray-450 mt-1">{formatDateTime(sub.createdAt)}</p>
+
+                      {/* Details */}
+                      <div className="text-xs font-semibold text-text-dark flex flex-col gap-2.5">
+                        {/* Meals Progress */}
+                        <div className="flex items-center justify-between bg-emerald-50/20 border border-emerald-100/30 rounded-xl p-2.5">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-gray-500 font-semibold">Meals Remaining:</span>
+                          </div>
+                          <span className="font-black text-primary text-sm">{sub.mealsRemaining} Left</span>
+                        </div>
+
+                        {/* Expiry and Dates */}
+                        <div className="flex flex-col gap-1.5 pl-1">
+                          <div className="flex items-center mt-1">
+                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-primary px-2.5 py-1 rounded-xl border border-emerald-100/60 text-[10.5px] font-bold">
+                              <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                              Expiry Date: {formatDate(sub.endDate)}
+                            </span>
+                          </div>
+                          
+                          {sub.isCompany && (
+                            <p className="text-[10px] text-amber-600 font-black uppercase tracking-wide">
+                              Company Tender ({sub.workerCount} workers)
+                            </p>
+                          )}
+                          
+                          <div className="text-[9.5px] text-gray-400 font-bold pl-1 mt-1">
+                            Purchased on: {formatDateTime(sub.createdAt)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between border-t border-emerald-50/50 pt-2.5 mt-0.5">
-                        <span className="text-sm font-black text-primary">PKR {sub.price?.toLocaleString()}</span>
+
+                      {/* Bottom Bar */}
+                      <div className="flex items-center justify-between pt-3 mt-1">
+                        <div className="flex flex-col text-left">
+                          <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Plan Cost</span>
+                          <span className="text-base font-black text-primary">
+                            PKR {sub.price?.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )

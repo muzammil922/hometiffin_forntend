@@ -321,7 +321,7 @@ export default function MealsManager() {
 
 
   return (
-    <div className="flex flex-col gap-8 text-left w-full">
+    <div className="flex flex-col gap-8 text-left w-full pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tight">Menu Items Manager</h1>

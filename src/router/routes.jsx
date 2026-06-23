@@ -26,6 +26,9 @@ import RiderRegistry from '../pages/Dashboard/RiderRegistry'
 import SubscriptionsManager from '../pages/Dashboard/SubscriptionsManager'
 import UsersManager from '../pages/Dashboard/UsersManager'
 import BannersManager from '../pages/Dashboard/BannersManager'
+import ComplaintsManager from '../pages/Dashboard/ComplaintsManager'
+import MyEarnings from '../pages/Dashboard/MyEarnings'
+import RiderPayments from '../pages/Dashboard/RiderPayments'
 
 // Role guard for sub-routes with permission check
 function RoleRoute({ roles, element, requiredPermission }) {
@@ -107,12 +110,14 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<DashboardOverviewSelector />} />
+        <Route path="overview" element={<DashboardOverviewSelector />} />
         <Route path="orders" element={<Orders />} />
         <Route path="subscription" element={<Subscription />} />
         
         {/* Dynamic tracking page depending on role */}
         <Route path="tracking" element={<DashboardTrackingSelector />} />
         <Route path="notifications" element={<Notifications />} />
+        <Route path="complaints" element={<RoleRoute roles={['admin', 'customer']} element={<ComplaintsManager />} />} />
         
         {/* Admin / Sub-admin Protected Routes */}
         <Route path="meals" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Meals" element={<MealsManager />} />} />
@@ -123,6 +128,8 @@ export default function AppRoutes() {
         <Route path="templates" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Message Templates" element={<TemplatesCustomizer />} />} />
         <Route path="whatsapp" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Evolution WhatsApp" element={<WhatsAppConnector />} />} />
         <Route path="riders" element={<RoleRoute roles={['admin']} element={<RiderRegistry />} />} />
+        <Route path="my-earnings" element={<RoleRoute roles={['rider']} element={<MyEarnings />} />} />
+        <Route path="rider-payments" element={<RoleRoute roles={['admin']} element={<RiderPayments />} />} />
       </Route>
     </Routes>
   )

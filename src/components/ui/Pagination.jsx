@@ -88,8 +88,8 @@ export default function Pagination({ page, totalPages, total, limit, onPageChang
         </div>
       </div>
 
-      {/* Row: page navigation (only if more than 1 page) */}
-      {totalPages > 1 && (
+      {/* Row: page navigation (always render page list if there are records) */}
+      {totalPages >= 1 && (
         <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {/* First */}
           <NavBtn onClick={() => onPageChange(1)} disabled={page === 1} label="First page">

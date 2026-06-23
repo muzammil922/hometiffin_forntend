@@ -109,7 +109,7 @@ export default function Tracking() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-8 text-left w-full animate-pulse">
+      <div className="flex flex-col gap-8 text-left w-full animate-pulse pb-16">
         {/* Header Skeleton */}
         <div>
           <div className="h-8 bg-gray-200 rounded-lg w-64 mb-2"></div>
@@ -187,7 +187,7 @@ export default function Tracking() {
   }
 
   return (
-    <div className="flex flex-col gap-8 text-left w-full">
+    <div className="flex flex-col gap-8 text-left w-full pb-16">
       <div>
         <h1 className="text-2xl font-bold text-text-dark">Live Delivery Tracking ({order.orderNumber})</h1>
         <p className="text-sm text-gray-500">Track your hot home-cooked meals from kitchen to doorstep.</p>

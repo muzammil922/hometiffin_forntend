@@ -16,7 +16,8 @@ import {
   Users,
   Image,
   Menu,
-  X
+  X,
+  AlertCircle
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -36,9 +37,11 @@ export default function Sidebar({ children }) {
         { name: 'Manage Meals', path: '/dashboard/meals', icon: ChefHat },
         { name: 'Manage Banners', path: '/dashboard/banners', icon: Image },
         { name: 'Payments Verification', path: '/dashboard/payments', icon: CreditCard },
+        { name: 'Rider Payments', path: '/dashboard/rider-payments', icon: CreditCard },
         { name: 'Message Templates', path: '/dashboard/templates', icon: MessageSquare },
         { name: 'Evolution WhatsApp', path: '/dashboard/whatsapp', icon: Smartphone },
         { name: 'Rider Accounts', path: '/dashboard/riders', icon: User },
+        { name: 'Complaints & Refunds', path: '/dashboard/complaints', icon: AlertCircle },
       ]
     } else if (user?.role === 'management') {
       const allowed = user?.allowedPages || []
@@ -56,6 +59,7 @@ export default function Sidebar({ children }) {
     } else if (user?.role === 'rider') {
       return [
         { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'My Earnings', path: '/dashboard/my-earnings', icon: CreditCard },
         { name: 'GPS Tracker', path: '/dashboard/tracking', icon: MapPin },
       ]
     } else {
@@ -66,6 +70,7 @@ export default function Sidebar({ children }) {
         { name: 'Payments', path: '/dashboard/payments', icon: CreditCard },
         { name: 'Live Tracking', path: '/dashboard/tracking', icon: MapPin },
         { name: 'Notifications', path: '/dashboard/notifications', icon: Bell },
+        { name: 'Complaints & Refunds', path: '/dashboard/complaints', icon: AlertCircle },
       ]
     }
   }
@@ -193,15 +198,15 @@ export default function Sidebar({ children }) {
                         <Link
                           to={item.path}
                           onClick={() => setDrawerOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all w-[75%] ${
+                          className={`flex items-center gap-3 py-2.5 rounded-r-xl rounded-l-none text-sm font-semibold transition-all w-fit relative ${
                             active
-                              ? 'bg-primary/90 text-white'
-                              : 'text-white/65 hover:text-white hover:bg-white/8'
+                              ? 'bg-primary/90 text-white pl-3 pr-4 border-l-4 border-white'
+                              : 'text-white/65 hover:text-white hover:bg-white/8 pl-4 pr-4'
                           }`}
                         >
                           <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-white' : 'text-white/40'}`} />
                           <span>{item.name}</span>
-                          {active && <span className="ml-auto w-2 h-2 rounded-full bg-white opacity-80" />}
+                          {active && <span className="ml-4 w-2 h-2 rounded-full bg-white opacity-80 shrink-0" />}
                         </Link>
                       </motion.div>
                     )
@@ -212,7 +217,7 @@ export default function Sidebar({ children }) {
                 <div className="px-3 mt-auto">
                   <button
                     onClick={() => { handleLogout(); setDrawerOpen(false) }}
-                    className="w-[75%] flex items-center gap-3 px-4 py-2.5 bg-accent/20 text-rose-400 hover:bg-accent/30 rounded-xl text-sm font-semibold cursor-pointer transition-all"
+                    className="w-fit flex items-center gap-3 pl-4 pr-4 py-2.5 bg-accent/20 text-rose-400 hover:bg-accent/30 rounded-xl text-sm font-semibold cursor-pointer transition-all"
                   >
                     <LogOut className="w-5 h-5" />
                     <span>Logout</span>
@@ -237,7 +242,7 @@ export default function Sidebar({ children }) {
             inset: 0,
             display: 'flex',
             flexDirection: 'column',
-            transform: 'scale(0.80) translateX(64%)',
+            transform: 'scale(0.80) translateX(min(90vw, 375px))',
             transformOrigin: 'left center',
             borderRadius: '22px',
             overflow: 'hidden',

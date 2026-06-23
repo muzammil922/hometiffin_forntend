@@ -30,6 +30,60 @@ export default function Overview() {
   // Simulated countdown timer for next tiffin delivery
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
 
+  const getSlotDetails = () => {
+    if (!hasActivePlan || !activeSub) return null
+
+    const now = new Date()
+    const currentHour = now.getHours()
+    const currentMinute = now.getMinutes()
+    const currentTimeInMinutes = currentHour * 60 + currentMinute
+
+    let slotStart = 0 // in minutes from midnight
+    let slotEnd = 0
+
+    const slotType = activeSub.preferenceDeliveryTime?.toLowerCase()
+    if (slotType === 'breakfast') {
+      slotStart = 8 * 60 // 8:00 AM
+      slotEnd = 9 * 60 + 30 // 9:30 AM
+    } else if (slotType === 'dinner') {
+      slotStart = 19 * 60 + 30 // 7:30 PM
+      slotEnd = 21 * 60 // 9:00 PM
+    } else {
+      // Default to lunch
+      slotStart = 12 * 60 + 30 // 12:30 PM
+      slotEnd = 14 * 60 // 2:00 PM
+    }
+
+    const isInSlot = currentTimeInMinutes >= slotStart && currentTimeInMinutes < slotEnd
+
+    return {
+      isInSlot,
+      slotStart,
+      slotEnd,
+      currentTimeInMinutes
+    }
+  }
+
+  const slotDetails = getSlotDetails()
+  const isInSlot = slotDetails?.isInSlot
+  const showTracking = !!activeOrder || (hasActivePlan && isInSlot)
+
+  const getEffectiveStatus = () => {
+    if (activeOrderStatus) return activeOrderStatus
+    
+    // Simulate status based on slot time
+    if (hasActivePlan && isInSlot && slotDetails) {
+      const elapsed = slotDetails.currentTimeInMinutes - slotDetails.slotStart
+      if (elapsed < 15) return 'Confirmed'
+      if (elapsed < 40) return 'Preparing'
+      if (elapsed < 80) return 'Picked Up'
+      return 'Delivered'
+    }
+    
+    return 'Confirmed'
+  }
+  const effectiveStatus = getEffectiveStatus()
+
   // Fetch initial profile & orders
   const fetchData = async () => {
     try {
@@ -154,7 +208,7 @@ export default function Overview() {
   }
 
   const getTimelineSteps = () => {
-    const status = activeOrderStatus || activeOrder?.status || 'Confirmed'
+    const status = effectiveStatus
     const isConfirmed = true
     const isPreparing = ['Preparing', 'Picked Up', 'Nearby', 'Delivered'].includes(status)
     const isOntheWay = ['Picked Up', 'Nearby', 'Delivered'].includes(status)
@@ -249,6 +303,17 @@ export default function Overview() {
 
   return (
     <div className="flex flex-col gap-8 text-left w-full px-1 pb-12">
+      <style>{`
+        @keyframes progress-flow {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 100% 50%; }
+        }
+        .animate-progress-flow {
+          background: linear-gradient(90deg, #065F46 0%, #10B981 50%, #065F46 100%);
+          background-size: 200% 100%;
+          animation: progress-flow 1.5s linear infinite;
+        }
+      `}</style>
       
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -268,11 +333,15 @@ export default function Overview() {
       {/* ── TOP STATS ROW (4 CARDS) ── */}
       <div className="flex overflow-x-auto lg:grid lg:grid-cols-4 gap-4 pb-2 snap-x snap-mandatory scrollbar-none">
         
-        {/* Card 1: Active Plan */}
+        {/* Card 1: Next Delivery */}
         <Card className="border border-gray-100 bg-white !p-5 hover:shadow-subtle transition-all duration-300 rounded-2xl shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start" hoverable={false}>
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Plan Status</span>
-          <span className="text-base font-black text-text-dark mt-1 block truncate">
-            {activeSub ? (activeSub.status === 'paused' ? 'Paused Plan' : planName) : 'No Plan'}
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Next Delivery</span>
+          <span className="text-xl font-black text-text-dark mt-1 block font-mono">
+            {hasActivePlan ? (
+              `${formatNumber(timeLeft.hours)}h ${formatNumber(timeLeft.minutes)}m`
+            ) : (
+              '—'
+            )}
           </span>
         </Card>
 
@@ -292,15 +361,11 @@ export default function Overview() {
           </span>
         </Card>
 
-        {/* Card 4: Next Delivery */}
+        {/* Card 4: Active Plan */}
         <Card className="border border-gray-100 bg-white !p-5 hover:shadow-subtle transition-all duration-300 rounded-2xl shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start" hoverable={false}>
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Next Delivery</span>
-          <span className="text-xl font-black text-text-dark mt-1 block font-mono">
-            {hasActivePlan ? (
-              `${formatNumber(timeLeft.hours)}h ${formatNumber(timeLeft.minutes)}m`
-            ) : (
-              '—'
-            )}
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Plan Status</span>
+          <span className="text-base font-black text-text-dark mt-1 block truncate">
+            {activeSub ? (activeSub.status === 'paused' ? 'Paused Plan' : planName) : 'No Plan'}
           </span>
         </Card>
 
@@ -319,10 +384,10 @@ export default function Overview() {
                 <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-5">
                   <div>
                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Today's Delivery</span>
-                    <h2 className="text-lg font-black text-text-dark mt-0.5">{activeOrder ? nextMealName : 'Scheduled Tiffin'}</h2>
+                    <h2 className="text-lg font-black text-text-dark mt-0.5">{activeOrder ? nextMealName : (activeSub?.preferenceMealCategory ? `${activeSub.preferenceMealCategory.charAt(0).toUpperCase() + activeSub.preferenceMealCategory.slice(1)} Tiffin` : 'Scheduled Tiffin')}</h2>
                   </div>
-                  <Badge variant={activeOrder ? getStatusBadgeVariant(activeOrderStatus) : 'primary'}>
-                    {activeOrder ? activeOrderStatus : 'Scheduled'}
+                  <Badge variant={getStatusBadgeVariant(effectiveStatus)}>
+                    {effectiveStatus === 'Delivered' ? 'Delivered' : (isInSlot ? effectiveStatus : 'Scheduled')}
                   </Badge>
                 </div>
 
@@ -343,11 +408,11 @@ export default function Overview() {
                 </div>
 
                 {/* Tracking Progress Stepper (No cartoonish icons) */}
-                {activeOrder && (
+                {showTracking && (
                   <div className="py-2 mb-2">
                     <div className="flex justify-between items-center mb-6">
                       <span className="text-xs font-bold text-gray-450 uppercase tracking-wider">Tiffin Tracking</span>
-                      <Link to={`/dashboard/tracking?orderId=${activeOrder.id}`} className="text-xs font-bold text-primary hover:underline">
+                      <Link to={activeOrder ? `/dashboard/tracking?orderId=${activeOrder.id}` : "/dashboard/tracking"} className="text-xs font-bold text-primary hover:underline">
                         Live Tracking Map →
                       </Link>
                     </div>
@@ -358,12 +423,14 @@ export default function Overview() {
                       
                       {/* Filled Progress Line */}
                       <div 
-                        className="absolute left-6 top-4 h-0.5 bg-primary -translate-y-1/2 transition-all duration-500"
+                        className={`absolute left-6 top-4 h-0.5 -translate-y-1/2 transition-all duration-500 ${
+                          effectiveStatus !== 'Delivered' ? 'animate-progress-flow' : 'bg-primary'
+                        }`}
                         style={{
                           width: 
-                            activeOrderStatus === 'Delivered' ? 'calc(100% - 3rem)' :
-                            ['Picked Up', 'Nearby'].includes(activeOrderStatus) ? '66%' :
-                            activeOrderStatus === 'Preparing' ? '33%' : '0%'
+                            effectiveStatus === 'Delivered' ? 'calc(100% - 3rem)' :
+                            ['Picked Up', 'Nearby'].includes(effectiveStatus) ? '66%' :
+                            effectiveStatus === 'Preparing' ? '33%' : '0%'
                         }}
                       />
 
@@ -371,15 +438,20 @@ export default function Overview() {
                       {getTimelineSteps().map((step, idx) => (
                         <div key={idx} className="flex flex-col items-center relative z-10">
                           {/* Node Circle */}
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 relative ${
                             step.active
                               ? 'bg-primary border-primary text-white shadow-sm'
                               : 'bg-white border-gray-200 text-gray-300'
                           }`}>
-                            {step.active && activeOrderStatus !== step.label ? (
+                            {/* Radar Ping Ripple Effect for active step */}
+                            {step.active && effectiveStatus === step.label && effectiveStatus !== 'Delivered' && (
+                              <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping pointer-events-none" />
+                            )}
+
+                            {step.active && effectiveStatus !== step.label ? (
                               <span className="text-[10px] font-black">✓</span>
                             ) : (
-                              <div className={`w-2.5 h-2.5 rounded-full ${step.active ? 'bg-white animate-pulse' : 'bg-gray-350'}`} />
+                              <div className="w-2.5 h-2.5 rounded-full bg-white relative z-10" />
                             )}
                           </div>
                           {/* Step Label */}
