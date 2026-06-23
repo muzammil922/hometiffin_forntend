@@ -3,6 +3,23 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 600,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-react', test: /node_modules\/(react|react-dom|react-router-dom|scheduler)/ },
+            { name: 'vendor-query', test: /node_modules\/@tanstack/ },
+            { name: 'vendor-motion', test: /node_modules\/framer-motion/ },
+            { name: 'vendor-pdf', test: /node_modules\/(jspdf|jspdf-autotable|html2canvas|dompurify)/ },
+            { name: 'vendor-maps', test: /node_modules\/@react-google-maps/ },
+            { name: 'vendor-socket', test: /node_modules\/socket\.io-client/ },
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

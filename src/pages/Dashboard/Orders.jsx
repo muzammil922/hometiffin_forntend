@@ -10,8 +10,7 @@ import { useAuthStore } from '../../store/authStore'
 import { formatDate, formatDateTime } from '../../services/dateFormatter'
 import { formatOrderAmount } from '../../services/orderStats'
 import { Calendar, Filter, Eye, Upload, AlertCircle, CheckCircle, User, Search, X, Truck, Phone, Mail, Download, Loader2, ShoppingBag, ChevronRight } from 'lucide-react'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { loadPdfLibs } from '../../utils/pdfExport'
 
 
 const DEFAULT_LIMIT = 20
@@ -92,12 +91,13 @@ export default function Orders() {
     }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (orders.length === 0) {
       addToast('No data to export.', 'warning')
       return
     }
 
+    const { jsPDF, autoTable } = await loadPdfLibs()
     const doc = new jsPDF()
 
     if (activeTab === 'one-time') {

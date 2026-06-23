@@ -8,8 +8,7 @@ import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
 import { formatDate, formatDateTime } from '../../services/dateFormatter'
 import { Users, Search, Filter, RefreshCw, Calendar, Mail, Phone, UserCheck, X, Download } from 'lucide-react'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { loadPdfLibs } from '../../utils/pdfExport'
 
 
 const DEFAULT_LIMIT = 20
@@ -143,12 +142,13 @@ export default function UsersManager() {
     }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (users.length === 0) {
       addToast('No users to export.', 'warning')
       return
     }
 
+    const { jsPDF, autoTable } = await loadPdfLibs()
     const doc = new jsPDF()
     
     // Add title

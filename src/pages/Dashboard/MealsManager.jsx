@@ -8,8 +8,7 @@ import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
 import { formatDateTime } from '../../services/dateFormatter'
 import { Plus, Trash, Pencil, CheckSquare, Square, Star, Search, X, Download } from 'lucide-react'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { loadPdfLibs } from '../../utils/pdfExport'
 
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -252,12 +251,13 @@ export default function MealsManager() {
     }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (meals.length === 0) {
       addToast('No meals to export.', 'warning')
       return
     }
 
+    const { jsPDF, autoTable } = await loadPdfLibs()
     const doc = new jsPDF()
 
     doc.setFontSize(18)

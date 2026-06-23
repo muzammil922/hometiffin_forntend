@@ -1,36 +1,37 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from '../components/shared/ProtectedRoute'
+import PageLoader from '../components/shared/PageLoader'
 import { useAuthStore } from '../store/authStore'
-import Home from '../pages/Home'
-import Menu from '../pages/Menu'
-import Login from '../pages/Login'
-import Register from '../pages/Register'
-import Reviews from '../pages/Reviews'
-import Cart from '../pages/Cart'
-import QuickOrder from '../pages/QuickOrder'
-import DashboardLayout from '../pages/Dashboard/index'
-import Overview from '../pages/Dashboard/Overview'
-import AdminOverview from '../pages/Dashboard/AdminOverview'
-import RiderOverview from '../pages/Dashboard/RiderOverview'
-import Orders from '../pages/Dashboard/Orders'
-import Subscription from '../pages/Dashboard/Subscription'
-import Payments from '../pages/Dashboard/Payments'
-import Tracking from '../pages/Dashboard/Tracking'
-import RiderTracker from '../pages/Dashboard/RiderTracker'
-import Notifications from '../pages/Dashboard/Notifications'
-import MealsManager from '../pages/Dashboard/MealsManager'
-import TemplatesCustomizer from '../pages/Dashboard/TemplatesCustomizer'
-import WhatsAppConnector from '../pages/Dashboard/WhatsAppConnector'
-import RiderRegistry from '../pages/Dashboard/RiderRegistry'
-import SubscriptionsManager from '../pages/Dashboard/SubscriptionsManager'
-import UsersManager from '../pages/Dashboard/UsersManager'
-import BannersManager from '../pages/Dashboard/BannersManager'
-import ComplaintsManager from '../pages/Dashboard/ComplaintsManager'
-import MyEarnings from '../pages/Dashboard/MyEarnings'
-import RiderPayments from '../pages/Dashboard/RiderPayments'
 
-// Role guard for sub-routes with permission check
+const Home = lazy(() => import('../pages/Home'))
+const Menu = lazy(() => import('../pages/Menu'))
+const Login = lazy(() => import('../pages/Login'))
+const Register = lazy(() => import('../pages/Register'))
+const Reviews = lazy(() => import('../pages/Reviews'))
+const Cart = lazy(() => import('../pages/Cart'))
+const QuickOrder = lazy(() => import('../pages/QuickOrder'))
+const DashboardLayout = lazy(() => import('../pages/Dashboard/index'))
+const Overview = lazy(() => import('../pages/Dashboard/Overview'))
+const AdminOverview = lazy(() => import('../pages/Dashboard/AdminOverview'))
+const RiderOverview = lazy(() => import('../pages/Dashboard/RiderOverview'))
+const Orders = lazy(() => import('../pages/Dashboard/Orders'))
+const Subscription = lazy(() => import('../pages/Dashboard/Subscription'))
+const Payments = lazy(() => import('../pages/Dashboard/Payments'))
+const Tracking = lazy(() => import('../pages/Dashboard/Tracking'))
+const RiderTracker = lazy(() => import('../pages/Dashboard/RiderTracker'))
+const Notifications = lazy(() => import('../pages/Dashboard/Notifications'))
+const MealsManager = lazy(() => import('../pages/Dashboard/MealsManager'))
+const TemplatesCustomizer = lazy(() => import('../pages/Dashboard/TemplatesCustomizer'))
+const WhatsAppConnector = lazy(() => import('../pages/Dashboard/WhatsAppConnector'))
+const RiderRegistry = lazy(() => import('../pages/Dashboard/RiderRegistry'))
+const SubscriptionsManager = lazy(() => import('../pages/Dashboard/SubscriptionsManager'))
+const UsersManager = lazy(() => import('../pages/Dashboard/UsersManager'))
+const BannersManager = lazy(() => import('../pages/Dashboard/BannersManager'))
+const ComplaintsManager = lazy(() => import('../pages/Dashboard/ComplaintsManager'))
+const MyEarnings = lazy(() => import('../pages/Dashboard/MyEarnings'))
+const RiderPayments = lazy(() => import('../pages/Dashboard/RiderPayments'))
+
 function RoleRoute({ roles, element, requiredPermission }) {
   const { user } = useAuthStore()
   if (!user || !roles.includes(user.role)) {
@@ -45,7 +46,6 @@ function RoleRoute({ roles, element, requiredPermission }) {
   return element
 }
 
-// Select Overview panel dynamically depending on user role
 function DashboardOverviewSelector() {
   const { user } = useAuthStore()
   if (user?.role === 'admin') return <AdminOverview />
@@ -55,7 +55,6 @@ function DashboardOverviewSelector() {
     if (allowed.includes('Overview')) {
       return <AdminOverview />
     }
-    // Redirect to the first permitted page
     const firstAllowed = allowed.find((p) => p !== 'Overview')
     if (firstAllowed) {
       const pathMap = {
@@ -81,7 +80,6 @@ function DashboardOverviewSelector() {
   return <Overview />
 }
 
-// Select Tracking panel dynamically depending on user role
 function DashboardTrackingSelector() {
   const { user } = useAuthStore()
   if (user?.role === 'rider') return <RiderTracker />
@@ -90,47 +88,43 @@ function DashboardTrackingSelector() {
 
 export default function AppRoutes() {
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<Home />} />
-      <Route path="/menu" element={<Menu />} />
-      <Route path="/reviews" element={<Reviews />} />
-      <Route path="/cart" element={<Cart />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/quick-order" element={<QuickOrder />} />
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/menu" element={<Menu />} />
+        <Route path="/reviews" element={<Reviews />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/quick-order" element={<QuickOrder />} />
 
-      {/* Protected Dashboard Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<DashboardOverviewSelector />} />
-        <Route path="overview" element={<DashboardOverviewSelector />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="subscription" element={<Subscription />} />
-        
-        {/* Dynamic tracking page depending on role */}
-        <Route path="tracking" element={<DashboardTrackingSelector />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route path="complaints" element={<RoleRoute roles={['admin', 'customer']} element={<ComplaintsManager />} />} />
-        
-        {/* Admin / Sub-admin Protected Routes */}
-        <Route path="meals" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Meals" element={<MealsManager />} />} />
-        <Route path="subscriptions" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Subscriptions" element={<SubscriptionsManager />} />} />
-        <Route path="users" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Users" element={<UsersManager />} />} />
-        <Route path="banners" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Banners" element={<BannersManager />} />} />
-        <Route path="payments" element={<RoleRoute roles={['admin', 'customer', 'management']} requiredPermission="Payments Verification" element={<Payments />} />} />
-        <Route path="templates" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Message Templates" element={<TemplatesCustomizer />} />} />
-        <Route path="whatsapp" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Evolution WhatsApp" element={<WhatsAppConnector />} />} />
-        <Route path="riders" element={<RoleRoute roles={['admin']} element={<RiderRegistry />} />} />
-        <Route path="my-earnings" element={<RoleRoute roles={['rider']} element={<MyEarnings />} />} />
-        <Route path="rider-payments" element={<RoleRoute roles={['admin']} element={<RiderPayments />} />} />
-      </Route>
-    </Routes>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DashboardOverviewSelector />} />
+          <Route path="overview" element={<DashboardOverviewSelector />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="subscription" element={<Subscription />} />
+          <Route path="tracking" element={<DashboardTrackingSelector />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="complaints" element={<RoleRoute roles={['admin', 'customer']} element={<ComplaintsManager />} />} />
+          <Route path="meals" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Meals" element={<MealsManager />} />} />
+          <Route path="subscriptions" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Subscriptions" element={<SubscriptionsManager />} />} />
+          <Route path="users" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Users" element={<UsersManager />} />} />
+          <Route path="banners" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Manage Banners" element={<BannersManager />} />} />
+          <Route path="payments" element={<RoleRoute roles={['admin', 'customer', 'management']} requiredPermission="Payments Verification" element={<Payments />} />} />
+          <Route path="templates" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Message Templates" element={<TemplatesCustomizer />} />} />
+          <Route path="whatsapp" element={<RoleRoute roles={['admin', 'management']} requiredPermission="Evolution WhatsApp" element={<WhatsAppConnector />} />} />
+          <Route path="riders" element={<RoleRoute roles={['admin']} element={<RiderRegistry />} />} />
+          <Route path="my-earnings" element={<RoleRoute roles={['rider']} element={<MyEarnings />} />} />
+          <Route path="rider-payments" element={<RoleRoute roles={['admin']} element={<RiderPayments />} />} />
+        </Route>
+      </Routes>
+    </Suspense>
   )
 }

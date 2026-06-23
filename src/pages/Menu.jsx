@@ -11,13 +11,12 @@ import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import { flyToCart } from '../services/flyToCart'
 import { Search, Sliders, ShoppingCart, Check, Scale, CupSoda, Cake, Salad, Clock, X } from 'lucide-react'
-import * as Icons from 'lucide-react'
+import { DynamicLucideIcon } from '../utils/lucideIconMap'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const renderIcon = (iconName) => {
-  const IconComponent = Icons[iconName] || Icons.ArrowRight
-  return <IconComponent className="w-3.5 h-3.5" />
-}
+const renderIcon = (iconName) => (
+  <DynamicLucideIcon name={iconName} className="w-3.5 h-3.5" />
+)
 
 /* ─────────────── Static Data ─────────────── */
 const MENU_ITEMS = [

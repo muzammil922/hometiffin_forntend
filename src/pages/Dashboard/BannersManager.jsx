@@ -6,7 +6,7 @@ import Input from '../../components/ui/Input'
 import Modal from '../../components/ui/Modal'
 import { useToastStore } from '../../store/toastStore'
 import { Plus, Trash, Pencil, Megaphone, Globe, Image } from 'lucide-react'
-import * as Icons from 'lucide-react'
+import { DynamicLucideIcon } from '../../utils/lucideIconMap'
 
 const emptyForm = {
   badge: '',
@@ -170,10 +170,9 @@ export default function BannersManager() {
     }
   }
 
-  const renderLucideIcon = (name) => {
-    const IconComponent = Icons[name] || Icons.ArrowRight
-    return <IconComponent className="w-4 h-4" />
-  }
+  const renderLucideIcon = (name) => (
+    <DynamicLucideIcon name={name} className="w-4 h-4" />
+  )
 
   return (
     <div className="flex flex-col gap-6 text-left">

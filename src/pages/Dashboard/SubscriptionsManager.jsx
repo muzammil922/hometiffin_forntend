@@ -9,8 +9,7 @@ import { useToastStore } from '../../store/toastStore'
 import { formatDate, formatDateTime } from '../../services/dateFormatter'
 import { Calendar, Users, Sliders, Edit, CheckCircle, Pause, AlertCircle, RefreshCw, XCircle, DollarSign, Eye, Loader2, Play, X, MoreVertical, Mail, Phone, User, Info, Truck, Search, Download } from 'lucide-react'
 import Pagination from '../../components/ui/Pagination'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { loadPdfLibs } from '../../utils/pdfExport'
 
 
 export default function SubscriptionsManager() {
@@ -298,12 +297,13 @@ export default function SubscriptionsManager() {
     }
   }
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (subscriptions.length === 0) {
       addToast('No subscriptions to export.', 'warning')
       return
     }
 
+    const { jsPDF, autoTable } = await loadPdfLibs()
     const doc = new jsPDF()
 
     doc.setFontSize(18)
