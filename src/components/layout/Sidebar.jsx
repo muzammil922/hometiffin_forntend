@@ -96,7 +96,7 @@ export default function Sidebar({ children }) {
 
   return (
     // Dark bg shows behind the pushed content on mobile
-    <div className="h-screen bg-[#0d3320] flex flex-col md:flex-row overflow-hidden relative">
+    <div className="fixed inset-0 bg-[#0d3320] flex flex-col md:flex-row overflow-hidden">
 
       {/* ══════════════════════════════════════
           DESKTOP SIDEBAR (white, left)

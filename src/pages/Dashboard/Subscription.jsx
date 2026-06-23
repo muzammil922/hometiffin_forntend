@@ -9,11 +9,36 @@ import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
 import api from '../../services/api'
 import { formatDate } from '../../services/dateFormatter'
-import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck, Check, Building2, User } from 'lucide-react'
+import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck, Check, Building2, User, Lock } from 'lucide-react'
 
 export default function Subscription() {
   const { addToast } = useToastStore()
   const { user, fetchProfile } = useAuthStore()
+  const [isPinned, setIsPinned] = useState(false)
+
+  useEffect(() => {
+    const scrollContainer = document.querySelector('main')
+    if (!scrollContainer) return
+
+    const handleScroll = () => {
+      const panel = document.getElementById('subscription-panel')
+      if (panel) {
+        const rect = panel.getBoundingClientRect()
+        setIsPinned(scrollContainer.scrollTop > 50 && rect.top <= 56)
+      } else {
+        setIsPinned(false)
+      }
+    }
+
+    scrollContainer.addEventListener('scroll', handleScroll)
+    const timer = setTimeout(handleScroll, 100)
+
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll)
+      clearTimeout(timer)
+    }
+  }, [])
+
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
 
@@ -1057,7 +1082,6 @@ export default function Subscription() {
     const schedule = matchingPlan.mealSchedules.find(s => s.dayIndex === dayIndex)
     return schedule ? schedule.mealName : 'Chef\'s Choice'
   }
-
   const daysPerWeek = 6
   const totalWeeks = Math.ceil(totalMeals / daysPerWeek)
   const currentDay = usedMeals + 1
@@ -1075,405 +1099,806 @@ export default function Subscription() {
   }
 
   return (
-    <div className="flex flex-col gap-8 text-left w-full pb-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text-dark">My Subscription</h1>
-        <p className="text-sm text-gray-500">Your current meal plan and delivery schedule.</p>
-      </div>
+    <div className="w-full">
+      {/* ─── DESKTOP VIEW ─── */}
+      <div className="hidden md:flex flex-col gap-8 text-left w-full pb-20">
+        <div>
+          <h1 className="text-2xl font-bold text-text-dark">My Subscription</h1>
+          <p className="text-sm text-gray-550">Your current meal plan and delivery schedule.</p>
+        </div>
 
-      {/* Plan Card */}
-      <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-emerald-50">
-          <div className="flex items-center gap-4 text-left">
-            <div className="p-3.5 bg-primary/10 text-primary border border-primary/20 rounded-2xl shrink-0">
-              <Calendar className="w-7 h-7" />
+        {/* Plan Card */}
+        <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-emerald-50">
+            <div className="flex items-center gap-4 text-left">
+              <div className="p-3.5 bg-primary/10 text-primary border border-primary/20 rounded-2xl shrink-0">
+                <Calendar className="w-7 h-7" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-extrabold text-text-dark text-lg tracking-tight">{planLabel}</h3>
+                  <Badge variant={isActive ? 'success' : 'warning'}>
+                    {isActive ? 'Active' : subscription.status === 'paused' ? 'Paused' : subscription.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-550 mt-1 font-semibold">Renews on: {renewalDate}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              <Button
+                variant={isActive ? 'outline' : 'primary'}
+                size="sm"
+                onClick={handleStatusToggle}
+                isLoading={updating}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 cursor-pointer rounded-xl font-bold px-4 py-2.5 text-xs uppercase tracking-wider"
+              >
+                {isActive ? (
+                  'Pause Plan'
+                ) : (
+                  <><Play className="w-4 h-4" /> Resume Plan</>
+                )}
+              </Button>
+              {subscription.planType === 'weekly' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setPurchasePlan('monthly')}
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold border-none shadow-md cursor-pointer transition-all duration-300 hover:scale-[1.03] active:scale-95 rounded-xl px-4 py-2.5 text-xs uppercase tracking-wider"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" /> Upgrade to Monthly
+                </Button>
+              )}
+            </div>
+          </div>
+          {subscription.isCompany && (
+            <div className="mt-5 p-4.5 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-text-dark">Corporate Subscription Address</p>
+                  <p className="text-[11px] text-gray-555 font-semibold mt-0.5">
+                    Delivering to: <span className="font-bold text-primary">{subscription.companyAddress}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="text-left sm:text-right shrink-0">
+                <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Today's Delivery Quote</span>
+                <span className="text-base font-black text-emerald-700">{subscription.workerCount} Fresh Tiffin Boxes</span>
+              </div>
+            </div>
+          )}
+
+          {/* Meals Stats */}
+          <div className="grid gap-4 sm:gap-5 pt-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
+            {(subscription.isCompany 
+              ? [
+                  { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Corporate Weekly' : 'Corporate Monthly', icon: Building2, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
+                  { label: 'Employees', value: `${subscription.workerCount} Employees`, icon: User, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
+                  { label: 'Total Quota', value: totalMeals, icon: Calendar, colorClass: 'bg-sky-50 text-sky-800 border-sky-100/50' },
+                  { label: 'Meals Delivered', value: usedMeals, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
+                  { label: 'Meals Remaining', value: subscription.mealsRemaining * subscription.workerCount, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
+                ]
+              : [
+                  { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Weekly' : 'Monthly', icon: Sparkles, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
+                  { label: 'Total Meals', value: totalMeals, icon: Calendar, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
+                  { label: 'Meals Used', value: usedMeals, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
+                  { label: 'Meals Remaining', value: subscription.mealsRemaining, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
+                ]
+            ).map((stat) => {
+              const Icon = stat.icon
+              return (
+                <div key={stat.label} className={`rounded-2xl !p-4 sm:!p-5 border flex flex-col justify-between min-h-[100px] sm:min-h-[110px] text-left transition-all hover:shadow-subtle ${stat.colorClass}`}>
+                  <div className="flex justify-between items-center w-full">
+                    <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider opacity-75">{stat.label}</span>
+                    <div className="p-1 sm:p-1.5 bg-white rounded-lg border border-current/10 shadow-xs shrink-0">
+                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
+                  </div>
+                  <p className="text-lg sm:text-xl font-black mt-2 leading-none">{stat.value}</p>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Meal Progress Bar */}
+          <div className="mt-6 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Meal Progress</p>
+                <p className="text-xs font-bold text-text-dark">
+                  {`${usedMeals} meals delivered`}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-primary leading-none">
+                  {usedMeals}
+                </span>
+                <span className="text-xs font-bold text-gray-400 ml-1">
+                  / {totalMeals}
+                </span>
+              </div>
+            </div>
+            <div className="w-full bg-gray-150 h-4 rounded-full overflow-hidden border border-emerald-100/50">
+              <div
+                className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 font-semibold mt-2 text-left">
+              {subscription.isCompany
+                ? `${subscription.mealsRemaining * subscription.workerCount} meals remaining`
+                : `${subscription.mealsRemaining} meals remaining`}
+            </p>
+          </div>
+        </Card>
+
+        {/* Subscription Meal Calendar Card */}
+        <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-emerald-50 pb-5 mb-6 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-text-dark text-lg tracking-tight">
+                  <span className="hidden sm:inline">Subscription Meal Calendar</span>
+                  <span className="sm:hidden">Meal Calendar</span>
+                </h3>
+                <p className="text-xs text-gray-550 mt-0.5">Track your daily deliveries and meal menus week-by-week</p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              <span className="text-[10.5px] sm:text-xs font-bold text-gray-650 bg-gray-50 px-2 sm:px-3 py-1.5 rounded-xl border border-gray-100 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
+                {subscription.planType === 'monthly' && (() => {
+                  const daysUsed = Math.max(0, planTotalMeals - subscription.mealsRemaining);
+                  return (
+                    <>
+                      <span className="text-emerald-700 whitespace-nowrap">Day {daysUsed + 1} of 30</span>
+                      <span className="text-gray-300">•</span>
+                    </>
+                  );
+                })()}
+                <span className="whitespace-nowrap">{usedMeals} Completed • {totalMeals - usedMeals} Remaining</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Weekly Tabs (only if totalWeeks > 1) */}
+          {totalWeeks > 1 && (
+            <div className="flex flex-col gap-4 mb-6">
+              <div 
+                className="flex flex-row flex-nowrap gap-2 bg-[#F4F6F5] p-1.5 rounded-2xl overflow-x-auto border border-gray-150/50 max-w-full w-fit"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {Array.from({ length: totalWeeks }).map((_, idx) => {
+                  const weekNum = idx + 1
+                  const isSelected = activeWeek === weekNum
+                  const { completed, total } = getWeekStats(weekNum)
+                  const isWeekCompleted = completed === total
+                  const isWeekActive = weekNum === defaultWeek
+
+                  return (
+                    <button
+                      key={weekNum}
+                      type="button"
+                      onClick={() => setSelectedWeek(weekNum)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border-none ${
+                        isSelected
+                          ? 'bg-primary text-white shadow-subtle'
+                          : 'text-primary/75 bg-transparent hover:bg-emerald-50 hover:text-primary'
+                      }`}
+                    >
+                      <span>Week {weekNum}</span>
+                      {isWeekCompleted ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      ) : isWeekActive ? (
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Week Progress Bar */}
+              {(() => {
+                const { completed, total } = getWeekStats(activeWeek)
+                const percent = Math.round((completed / total) * 100)
+                return (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50/15 border border-emerald-100/40 p-4 rounded-2xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-text-dark">Week {activeWeek} Progress</span>
+                      <span className="text-[10px] bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-md">
+                        {completed} of {total} Received
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-48">
+                      <div className="flex-1 bg-gray-150 h-2 rounded-full overflow-hidden">
+                        <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-text-dark">{percent}%</span>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {(() => {
+              const items = []
+              const startDay = totalWeeks > 1 ? (activeWeek - 1) * daysPerWeek + 1 : 1
+              const endDay = totalWeeks > 1 ? Math.min(totalMeals, activeWeek * daysPerWeek) : totalMeals
+
+              for (let i = startDay; i <= endDay; i++) {
+                const mealName = getMealNameForDay(i)
+                const isCompleted = i < usedMeals + 1
+                const isToday = i === usedMeals + 1
+
+                items.push(
+                  <motion.div
+                    key={i}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    transition={{ duration: 0.2 }}
+                    className={`group relative p-5 rounded-2xl border transition-all flex flex-col justify-between min-h-[140px] text-left overflow-hidden ${
+                      isToday
+                        ? 'border-primary bg-gradient-to-br from-emerald-50/30 to-emerald-100/10 shadow-md ring-2 ring-primary/20'
+                        : isCompleted
+                        ? 'border-slate-200/80 bg-gradient-to-br from-slate-50/90 to-slate-100/40 backdrop-blur-[1px] shadow-sm hover:border-slate-300 transition-all'
+                        : 'border-gray-150 bg-white hover:border-emerald-100/80 hover:shadow-subtle'
+                    }`}
+                  >
+                    {/* Subtle Background Art for Today */}
+                    {isToday && (
+                      <div className="absolute -right-6 -bottom-6 text-primary/5 pointer-events-none transform rotate-12">
+                        <Utensils className="w-24 h-24" />
+                      </div>
+                    )}
+
+                    {/* Subtle Background Art for Completed / Locked */}
+                    {isCompleted && (
+                      <div className="absolute -right-4 -bottom-4 text-slate-250/20 pointer-events-none transform -rotate-12 group-hover:rotate-0 group-hover:scale-110 transition-all duration-500">
+                        <Lock className="w-16 h-16 stroke-[1.2]" />
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center w-full">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                        isToday ? 'text-primary' : 'text-gray-400'
+                      }`}>
+                        Day {i}
+                      </span>
+                      {isToday ? (
+                        <span className="flex items-center gap-1">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                          </span>
+                          <span className="text-[9px] bg-primary text-white font-extrabold px-1.5 py-0.5 rounded-md uppercase">Today</span>
+                        </span>
+                      ) : isCompleted ? (
+                        <span className="flex items-center gap-1 bg-slate-100 text-slate-550 border border-slate-200/80 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider shadow-sm transition-all group-hover:bg-slate-200/80 group-hover:border-slate-300">
+                          <Lock className="w-2.5 h-2.5 text-slate-400 group-hover:text-slate-550 transition-colors" />
+                          Delivered
+                        </span>
+                      ) : (
+                        <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 font-bold uppercase tracking-wider">
+                          Upcoming
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2.5 mt-4">
+                      <div className="flex items-start gap-2">
+                        {isCompleted ? (
+                          <div className="relative w-4.5 h-4.5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 group-hover:border-slate-350 transition-colors">
+                            <Lock className="w-2.5 h-2.5 text-slate-400 group-hover:text-slate-555 transition-colors" />
+                          </div>
+                        ) : (
+                          <Utensils className={`w-4 h-4 shrink-0 mt-0.5 ${isToday ? 'text-primary animate-bounce' : 'text-gray-400'}`} />
+                        )}
+                        <p className={`text-xs font-bold leading-snug ${
+                          isToday 
+                            ? 'text-text-dark font-black' 
+                            : isCompleted 
+                            ? 'text-gray-450 line-through decoration-gray-300 font-semibold' 
+                            : 'text-text-dark'
+                        }`}>
+                          {mealName}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Visual Completion Indicator Dot at bottom edge */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1">
+                      <div className={`h-full ${
+                        isToday 
+                          ? 'bg-primary' 
+                          : isCompleted 
+                          ? 'bg-slate-300' 
+                          : 'bg-transparent'
+                      }`} />
+                    </div>
+                  </motion.div>
+                )
+              }
+              return items
+            })()}
+          </div>
+        </Card>
+
+        {/* Delivery Preferences */}
+        <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
+          <div className="flex items-center gap-3 border-b border-emerald-50 pb-4 mb-6">
+            <div className="p-2.5 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
+              <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-extrabold text-text-dark text-lg tracking-tight">{planLabel}</h3>
-                <Badge variant={isActive ? 'success' : 'warning'}>
-                  {isActive ? 'Active' : subscription.status === 'paused' ? 'Paused' : subscription.status}
-                </Badge>
-              </div>
-              <p className="text-xs text-gray-500 mt-1 font-semibold">Renews on: {renewalDate}</p>
+              <h3 className="font-extrabold text-text-dark text-lg tracking-tight">Delivery Preferences</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Your set schedule details and dietary category</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <Button
-              variant={isActive ? 'outline' : 'primary'}
-              size="sm"
-              onClick={handleStatusToggle}
-              isLoading={updating}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 cursor-pointer rounded-xl font-bold px-4 py-2.5 text-xs uppercase tracking-wider"
-            >
-              {isActive ? (
-                'Pause Plan'
-              ) : (
-                <><Play className="w-4 h-4" /> Resume Plan</>
-              )}
-            </Button>
-            {subscription.planType === 'weekly' && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setPurchasePlan('monthly')}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold border-none shadow-md cursor-pointer transition-all duration-300 hover:scale-[1.03] active:scale-95 rounded-xl px-4 py-2.5 text-xs uppercase tracking-wider"
-              >
-                <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" /> Upgrade to Monthly
-              </Button>
-            )}
-          </div>
-        </div>
-        {subscription.isCompany && (
-          <div className="mt-5 p-4.5 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
-                <Building2 className="w-5 h-5" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+            {/* Time Slot card */}
+            <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+              <div className={`p-3.5 rounded-xl shrink-0 ${
+                subscription.preferenceDeliveryTime === 'dinner' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                  : 'bg-amber-50 text-amber-600 border border-amber-100'
+              }`}>
+                {subscription.preferenceDeliveryTime === 'dinner' ? <Moon className="w-6 h-6 animate-pulse" /> : <Sun className="w-6 h-6 text-amber-500" />}
               </div>
               <div className="text-left">
-                <p className="text-xs font-bold text-text-dark">Corporate Subscription Address</p>
-                <p className="text-[11px] text-gray-555 font-semibold mt-0.5">
-                  Delivering to: <span className="font-bold text-primary">{subscription.companyAddress}</span>
+                <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-0.5">Delivery Time Slot</span>
+                <span className="text-sm font-black text-text-dark mt-1 block">
+                  {subscription.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM – 9:00 PM)' : 'Lunch (12:30 PM – 2:00 PM)'}
+                </span>
+              </div>
+            </div>
+
+            {/* Meal Category card */}
+            <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+              <div className="p-3.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl shrink-0">
+                <Leaf className="w-6 h-6" />
+              </div>
+              <div className="text-left">
+                <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-0.5">Meal Category</span>
+                <span className="text-sm font-black text-text-dark capitalize mt-1 block">
+                  {subscription.preferenceMealCategory || 'Balanced'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Change Request CTA box */}
+          <div className="flex flex-col sm:flex-row sm:items-center items-center justify-between gap-4 p-5 bg-emerald-50/15 border border-emerald-100/35 rounded-2xl">
+            <div className="flex items-start gap-3 text-left">
+              <div className="p-1.5 bg-emerald-100/50 rounded-lg text-primary mt-0.5">
+                <Phone className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-text-dark">Want to change your delivery settings?</p>
+                <p className="text-[10.5px] text-gray-555 font-medium leading-relaxed mt-0.5">
+                  To update your time slot or meal type, simply send us a quick text on WhatsApp.
                 </p>
               </div>
             </div>
-            <div className="text-left sm:text-right shrink-0">
-              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Today's Delivery Quote</span>
-              <span className="text-base font-black text-emerald-700">{subscription.workerCount} Fresh Tiffin Boxes</span>
+            <a 
+              href="https://wa.me/923113840943?text=Hi%20Home%20Tiffin,%20I%20want%20to%20change%20my%20delivery%20preferences." 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="shrink-0"
+            >
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-xl border-emerald-600 text-emerald-800 hover:bg-emerald-50 px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+              >
+                Contact Support
+              </Button>
+            </a>
+          </div>
+        </Card>
+      </div>
+
+      {/* ─── MOBILE VIEW (Mockup Style) ─── */}
+      <div className="md:hidden flex flex-col -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] bg-[#F4F6F5] text-left relative">
+        {/* Header Block with Card Stack */}
+        <div className="sticky top-[-16px] sm:top-[-24px] z-0 bg-gradient-to-br from-[#065F46] via-[#044e39] to-emerald-950 pt-10 pb-20 px-6 rounded-b-[40px] text-white overflow-hidden flex flex-col gap-6">
+          {/* Background glowing bubbles */}
+          <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl" />
+          <div className="absolute -bottom-10 -left-10 w-44 h-44 bg-emerald-400/10 rounded-full blur-3xl" />
+
+          {/* Header Title & Sub */}
+          <div className="relative z-10 flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-black tracking-tight">My Subscription</h1>
+              <p className="text-xs text-emerald-200/80 font-medium mt-1">Your active meal plan & calendar tracker</p>
             </div>
           </div>
-        )}
 
-        {/* Meals Stats */}
-        <div className={`grid gap-5 pt-6 ${
-          subscription.isCompany 
-            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5' 
-            : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-        }`}>
-          {(subscription.isCompany 
-            ? [
-                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Corporate Weekly' : 'Corporate Monthly', icon: Building2, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
-                { label: 'Employees', value: `${subscription.workerCount} Employees`, icon: User, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
-                { label: 'Total Quota', value: totalMeals, icon: Calendar, colorClass: 'bg-sky-50 text-sky-800 border-sky-100/50' },
-                { label: 'Meals Delivered', value: usedMeals, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
-                { label: 'Meals Remaining', value: subscription.mealsRemaining * subscription.workerCount, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
-              ]
-            : [
-                { label: 'Plan Type', value: subscription.planType === 'weekly' ? 'Weekly' : 'Monthly', icon: Sparkles, colorClass: 'bg-emerald-50 text-emerald-800 border-emerald-100/50' },
-                { label: 'Total Meals', value: totalMeals, icon: Calendar, colorClass: 'bg-blue-50 text-blue-800 border-blue-100/50' },
-                { label: 'Meals Used', value: usedMeals, icon: CheckCircle2, colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' },
-                { label: 'Meals Remaining', value: subscription.mealsRemaining, icon: Utensils, colorClass: 'bg-indigo-50 text-indigo-800 border-indigo-100/50' },
-              ]
-          ).map((stat) => {
-            const Icon = stat.icon
-            return (
-              <div key={stat.label} className={`rounded-2xl p-5 border flex flex-col justify-between min-h-[110px] text-left transition-all hover:shadow-subtle ${stat.colorClass}`}>
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-75">{stat.label}</span>
-                  <div className="p-1.5 bg-white rounded-lg border border-current/10 shadow-xs shrink-0">
-                    <Icon className="w-4 h-4" />
+          {/* Card Stack representation */}
+          <div className="relative h-44 mt-2 select-none">
+            {/* Background card (stacked behind) */}
+            <div className="absolute top-2 left-4 right-4 h-36 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-sm z-0 transform rotate-1 scale-95 opacity-60" />
+            
+            {/* Main card */}
+            <div className="absolute top-0 left-0 right-0 h-38 bg-gradient-to-tr from-white/15 to-white/5 border border-white/20 rounded-3xl backdrop-blur-lg shadow-xl p-5 flex flex-col justify-between z-10 text-left">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] text-emerald-200/80 font-extrabold uppercase tracking-wider">
+                    Active Tiffin Ledger
+                  </p>
+                  <h2 className="text-lg font-black mt-0.5 tracking-tight">
+                    {planLabel}
+                  </h2>
+                </div>
+                <Calendar className="w-6 h-6 text-emerald-300" />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-[9px] text-emerald-300/80 font-extrabold uppercase tracking-widest">Status</p>
+                    <p className="text-xl font-black tracking-tight uppercase">
+                      {isActive ? 'Active' : 'Paused'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] text-emerald-300/80 font-extrabold uppercase tracking-widest">Renews on</p>
+                    <p className="text-xs font-bold">
+                      {renewalDate}
+                    </p>
                   </div>
                 </div>
-                <p className="text-xl font-black mt-2 leading-none">{stat.value}</p>
               </div>
-            )
-          })}
+            </div>
+          </div>
         </div>
 
-        {/* Meal Progress Bar */}
-        <div className="mt-6 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Meal Progress</p>
-              <p className="text-xs font-bold text-text-dark">
-                {`${usedMeals} meals delivered`}
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-2xl font-black text-primary leading-none">
-                {usedMeals}
-              </span>
-              <span className="text-xs font-bold text-gray-400 ml-1">
-                / {totalMeals}
-              </span>
+        {/* White Panel */}
+        <div 
+          id="subscription-panel"
+          style={{ 
+            borderTopLeftRadius: '36px', 
+            borderTopRightRadius: '36px' 
+          }}
+          className="bg-white -mt-16 pt-0 px-5 pb-24 relative z-20 min-h-screen shadow-card flex flex-col gap-6 text-left transition-all duration-300"
+        >
+          {/* Mobile Actions: Pause/Resume Plan */}
+          <div 
+            style={{ 
+              borderTopLeftRadius: '36px', 
+              borderTopRightRadius: '36px' 
+            }}
+            className="sticky top-[-16px] sm:top-[-24px] z-30 bg-white pt-8 pb-4 flex flex-col gap-4 -mx-5 px-5 border-b border-slate-100/50 transition-all duration-300"
+          >
+            <div className="flex gap-3">
+              <Button
+                variant={isActive ? 'outline' : 'primary'}
+                size="sm"
+                onClick={handleStatusToggle}
+                isLoading={updating}
+                className="flex-1 flex items-center justify-center gap-1.5 cursor-pointer rounded-xl font-bold py-3.5 text-xs uppercase tracking-wider"
+              >
+                {isActive ? (
+                  'Pause Plan'
+                ) : (
+                  <><Play className="w-3.5 h-3.5" /> Resume</>
+                )}
+              </Button>
+              {subscription.planType === 'weekly' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setPurchasePlan('monthly')}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold border-none shadow-md cursor-pointer transition-all rounded-xl py-3.5 text-xs uppercase tracking-wider"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-pulse" /> Upgrade
+                </Button>
+              )}
             </div>
           </div>
-          <div className="w-full bg-gray-150 h-4 rounded-full overflow-hidden border border-emerald-100/50">
-            <div
-              className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <p className="text-[11px] text-gray-400 font-semibold mt-2 text-left">
-            {subscription.isCompany
-              ? `${subscription.mealsRemaining * subscription.workerCount} meals remaining`
-              : `${subscription.mealsRemaining} meals remaining`}
-          </p>
-        </div>
-      </Card>
 
-      {/* Subscription Meal Calendar Card */}
-      <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-emerald-50 pb-5 mb-6 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
-              <Calendar className="w-5 h-5" />
+          {/* Corporate Address Quote */}
+          {subscription.isCompany && (
+            <div className="p-4 bg-emerald-50/20 border border-emerald-100/50 rounded-2xl flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-text-dark">Corporate Address</p>
+                  <p className="text-[11px] text-gray-555 font-semibold mt-0.5">
+                    Delivering to: <span className="font-bold text-primary">{subscription.companyAddress}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="text-left border-t border-emerald-100/30 pt-2 flex justify-between items-center">
+                <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">Today's Delivery</span>
+                <span className="text-sm font-black text-emerald-700">{subscription.workerCount} Tiffins</span>
+              </div>
             </div>
-            <div>
-              <h3 className="font-extrabold text-text-dark text-lg tracking-tight">Subscription Meal Calendar</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Track your daily deliveries and meal menus week-by-week</p>
+          )}
+
+          {/* Meal Progress Bar */}
+          <div className="p-4 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+            <div className="flex items-end justify-between mb-2">
+              <div>
+                <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Meal Progress</p>
+                <p className="text-xs font-bold text-text-dark">
+                  {`${usedMeals} meals delivered`}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-black text-primary leading-none">
+                  {usedMeals}
+                </span>
+                <span className="text-xs font-bold text-gray-400 ml-1">
+                  / {totalMeals}
+                </span>
+              </div>
             </div>
+            <div className="w-full bg-gray-150 h-3 rounded-full overflow-hidden border border-emerald-100/50">
+              <div
+                className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-gray-400 font-semibold mt-1.5 text-left">
+              {subscription.isCompany
+                ? `${subscription.mealsRemaining * subscription.workerCount} meals remaining`
+                : `${subscription.mealsRemaining} meals remaining`}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 flex items-center gap-2">
-              {subscription.planType === 'monthly' && (() => {
-                const daysUsed = Math.max(0, planTotalMeals - subscription.mealsRemaining);
-                return (
-                  <>
-                    <span className="text-emerald-700">Day {daysUsed + 1} of 30</span>
-                    <span className="text-gray-300">•</span>
-                  </>
-                );
-              })()}
-              <span>{usedMeals} Completed • {totalMeals - usedMeals} Remaining</span>
+
+          {/* Section Header */}
+          <div className="flex justify-between items-center border-b border-slate-100 pb-2 mt-2">
+            <h3 className="text-sm font-black text-slate-800 tracking-tight uppercase">
+              Meal Calendar
+            </h3>
+            <span className="text-[10px] font-black text-gray-450 uppercase tracking-wider">
+              {usedMeals} Done • {totalMeals - usedMeals} Left
             </span>
           </div>
-        </div>
 
-        {/* Weekly Tabs (only if totalWeeks > 1) */}
-        {totalWeeks > 1 && (
-          <div className="flex flex-col gap-4 mb-6">
-            <div 
-              className="flex flex-row flex-nowrap gap-2 bg-[#F4F6F5] p-1.5 rounded-2xl overflow-x-auto border border-gray-150/50 max-w-full w-fit"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              {Array.from({ length: totalWeeks }).map((_, idx) => {
-                const weekNum = idx + 1
-                const isSelected = activeWeek === weekNum
-                const { completed, total } = getWeekStats(weekNum)
-                const isWeekCompleted = completed === total
-                const isWeekActive = weekNum === defaultWeek
+          {/* Weekly Tabs (only if totalWeeks > 1) */}
+          {totalWeeks > 1 && (
+            <div className="flex flex-col gap-4">
+              <div 
+                className="flex flex-row flex-nowrap gap-2 bg-[#F4F6F5] p-1.5 rounded-2xl overflow-x-auto border border-gray-150/50 max-w-full w-fit"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {Array.from({ length: totalWeeks }).map((_, idx) => {
+                  const weekNum = idx + 1
+                  const isSelected = activeWeek === weekNum
+                  const { completed, total } = getWeekStats(weekNum)
+                  const isWeekCompleted = completed === total
+                  const isWeekActive = weekNum === defaultWeek
 
+                  return (
+                    <button
+                      key={weekNum}
+                      type="button"
+                      onClick={() => setSelectedWeek(weekNum)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 border-none ${
+                        isSelected
+                          ? 'bg-primary text-white shadow-subtle'
+                          : 'text-primary/75 bg-transparent hover:bg-emerald-50 hover:text-primary'
+                      }`}
+                    >
+                      <span>Week {weekNum}</span>
+                      {isWeekCompleted ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      ) : isWeekActive ? (
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Week Progress Bar */}
+              {(() => {
+                const { completed, total } = getWeekStats(activeWeek)
+                const percent = Math.round((completed / total) * 100)
                 return (
-                  <button
-                    key={weekNum}
-                    type="button"
-                    onClick={() => setSelectedWeek(weekNum)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                      isSelected
-                        ? 'bg-primary text-white shadow-subtle'
-                        : 'text-primary/75 hover:bg-emerald-50 hover:text-primary'
+                  <div className="flex flex-col gap-2 bg-emerald-50/15 border border-emerald-100/40 p-4 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-text-dark">Week {activeWeek} Progress</span>
+                      <span className="text-[10px] bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-md">
+                        {completed} of {total} Received
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex-1 bg-gray-150 h-2 rounded-full overflow-hidden">
+                        <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${percent}%` }} />
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-text-dark">{percent}%</span>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {(() => {
+              const items = []
+              const startDay = totalWeeks > 1 ? (activeWeek - 1) * daysPerWeek + 1 : 1
+              const endDay = totalWeeks > 1 ? Math.min(totalMeals, activeWeek * daysPerWeek) : totalMeals
+
+              for (let i = startDay; i <= endDay; i++) {
+                const mealName = getMealNameForDay(i)
+                const isCompleted = i < usedMeals + 1
+                const isToday = i === usedMeals + 1
+
+                items.push(
+                  <motion.div
+                    key={i}
+                    whileTap={{ scale: 0.98 }}
+                    className={`group relative p-4 rounded-2xl border transition-all flex flex-col justify-between min-h-[120px] text-left overflow-hidden ${
+                      isToday
+                        ? 'border-primary bg-gradient-to-br from-emerald-50/30 to-emerald-100/10 shadow-md ring-2 ring-primary/20'
+                        : isCompleted
+                        ? 'border-slate-200/80 bg-gradient-to-br from-slate-50/90 to-slate-100/40 backdrop-blur-[1px] shadow-sm'
+                        : 'border-gray-150 bg-white hover:border-emerald-100/80'
                     }`}
                   >
-                    <span>Week {weekNum}</span>
-                    {isWeekCompleted ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-300" />
-                    ) : isWeekActive ? (
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
-                      </span>
-                    ) : null}
-                  </button>
-                )
-              })}
-            </div>
+                    {/* Subtle Background Art for Today */}
+                    {isToday && (
+                      <div className="absolute -right-6 -bottom-6 text-primary/5 pointer-events-none transform rotate-12">
+                        <Utensils className="w-16 h-16" />
+                      </div>
+                    )}
 
-            {/* Week Progress Bar */}
-            {(() => {
-              const { completed, total } = getWeekStats(activeWeek)
-              const percent = Math.round((completed / total) * 100)
-              return (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50/15 border border-emerald-100/40 p-4 rounded-2xl">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-text-dark">Week {activeWeek} Progress</span>
-                    <span className="text-[10px] bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-md">
-                      {completed} of {total} Received
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 w-full sm:w-48">
-                    <div className="flex-1 bg-gray-150 h-2 rounded-full overflow-hidden">
-                      <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
+                    {/* Subtle Background Art for Completed / Locked */}
+                    {isCompleted && (
+                      <div className="absolute -right-4 -bottom-4 text-slate-250/20 pointer-events-none transform -rotate-12">
+                        <Lock className="w-12 h-12 stroke-[1.2]" />
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center w-full">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                        isToday ? 'text-primary' : 'text-gray-400'
+                      }`}>
+                        Day {i}
+                      </span>
+                      {isToday ? (
+                        <span className="text-[8px] bg-primary text-white font-extrabold px-1.5 py-0.5 rounded-md uppercase">Today</span>
+                      ) : isCompleted ? (
+                        <span className="flex items-center gap-1 bg-slate-100 text-slate-500 border border-slate-200/80 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider">
+                          <Lock className="w-2 h-2 text-slate-400" />
+                          Delivered
+                        </span>
+                      ) : (
+                        <span className="text-[8px] bg-slate-100 text-slate-450 border border-slate-150 px-1.5 py-0.5 rounded-lg font-bold uppercase tracking-wider">Upcoming</span>
+                      )}
                     </div>
-                    <span className="text-[11px] font-mono font-bold text-text-dark">{percent}%</span>
-                  </div>
-                </div>
-              )
+
+                    <div className="flex flex-col gap-1 mt-3">
+                      <div className="flex items-start gap-1.5">
+                        {isCompleted ? (
+                          <Lock className="w-3 h-3 text-slate-455 shrink-0 mt-0.5" />
+                        ) : (
+                          <Utensils className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isToday ? 'text-primary animate-bounce' : 'text-gray-400'}`} />
+                        )}
+                        <p className={`text-[11px] font-bold leading-tight ${
+                          isToday 
+                            ? 'text-text-dark font-black' 
+                            : isCompleted 
+                            ? 'text-gray-450 line-through decoration-gray-300 font-semibold' 
+                            : 'text-text-dark'
+                        }`}>
+                          {mealName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 h-1">
+                      <div className={`h-full ${
+                        isToday 
+                          ? 'bg-primary' 
+                          : isCompleted 
+                          ? 'bg-slate-300' 
+                          : 'bg-transparent'
+                      }`} />
+                    </div>
+                  </motion.div>
+                )
+              }
+              return items
             })()}
           </div>
-        )}
 
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {(() => {
-            const items = []
-            const startDay = totalWeeks > 1 ? (activeWeek - 1) * daysPerWeek + 1 : 1
-            const endDay = totalWeeks > 1 ? Math.min(totalMeals, activeWeek * daysPerWeek) : totalMeals
+          {/* Delivery Preferences */}
+          <div className="flex flex-col gap-4 mt-2">
+            <div className="flex items-center gap-3 border-b border-emerald-50 pb-2">
+              <div className="p-2 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-text-dark text-sm tracking-tight">Delivery Preferences</h3>
+                <p className="text-[10px] text-gray-555 mt-0.5">Your schedule and meal category</p>
+              </div>
+            </div>
 
-            for (let i = startDay; i <= endDay; i++) {
-              const mealName = getMealNameForDay(i)
-              const isCompleted = i < usedMeals + 1
-              const isToday = i === usedMeals + 1
-              const isUpcoming = i > usedMeals + 1
+            <div className="grid grid-cols-1 gap-3">
+              {/* Time Slot card */}
+              <div className="flex items-center gap-3 p-4 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+                <div className={`p-2.5 rounded-xl shrink-0 ${
+                  subscription.preferenceDeliveryTime === 'dinner' 
+                    ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                    : 'bg-amber-50 text-amber-600 border border-amber-100'
+                }`}>
+                  {subscription.preferenceDeliveryTime === 'dinner' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-amber-500" />}
+                </div>
+                <div className="text-left">
+                  <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider block">Time Slot</span>
+                  <span className="text-xs font-black text-text-dark mt-0.5 block">
+                    {subscription.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM – 9:00 PM)' : 'Lunch (12:30 PM – 2:00 PM)'}
+                  </span>
+                </div>
+              </div>
 
-              items.push(
-                <motion.div
-                  key={i}
-                  whileHover={{ y: -4, scale: 1.01 }}
-                  transition={{ duration: 0.2 }}
-                  className={`relative p-5 rounded-2xl border transition-all flex flex-col justify-between min-h-[140px] text-left overflow-hidden ${
-                    isToday
-                      ? 'border-primary bg-gradient-to-br from-emerald-50/30 to-emerald-100/10 shadow-md ring-2 ring-primary/20'
-                      : isCompleted
-                      ? 'border-emerald-100/50 bg-[#E8F5E9]/5 opacity-80'
-                      : 'border-gray-150 bg-white hover:border-emerald-100/80 hover:shadow-subtle'
-                  }`}
+              {/* Meal Category card */}
+              <div className="flex items-center gap-3 p-4 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
+                <div className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl shrink-0">
+                  <Leaf className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider block">Meal Category</span>
+                  <span className="text-xs font-black text-text-dark capitalize mt-0.5 block">
+                    {subscription.preferenceMealCategory || 'Balanced'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Change Request CTA box */}
+            <div className="flex flex-col gap-3 p-4 bg-emerald-50/15 border border-emerald-100/35 rounded-2xl text-left">
+              <div className="flex items-start gap-2">
+                <div className="p-1 bg-emerald-100/50 rounded-md text-primary shrink-0 mt-0.5">
+                  <Phone className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-text-dark">Change preferences?</p>
+                  <p className="text-[10px] text-gray-555 font-medium leading-normal mt-0.5">
+                    Send a quick text on WhatsApp to change your time slot or meal type.
+                  </p>
+                </div>
+              </div>
+              <a 
+                href="https://wa.me/923113840943?text=Hi%20Home%20Tiffin,%20I%20want%20to%20change%20my%20delivery%20preferences." 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full text-center"
+              >
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full rounded-xl border-emerald-600 text-emerald-800 hover:bg-emerald-50 py-2 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  {/* Subtle Background Art for Today */}
-                  {isToday && (
-                    <div className="absolute -right-6 -bottom-6 text-primary/5 pointer-events-none transform rotate-12">
-                      <Utensils className="w-24 h-24" />
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center w-full">
-                    <span className={`text-[10px] font-extrabold uppercase tracking-wider ${
-                      isToday ? 'text-primary' : 'text-gray-400'
-                    }`}>
-                      Day {i}
-                    </span>
-                    {isToday ? (
-                      <span className="flex items-center gap-1">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                        </span>
-                        <span className="text-[9px] bg-primary text-white font-extrabold px-1.5 py-0.5 rounded-md uppercase">Today</span>
-                      </span>
-                    ) : isCompleted ? (
-                      <Badge variant="success" className="text-[8px] px-1.5 py-0.5 font-bold uppercase tracking-wider flex items-center gap-0.5">
-                        Delivered
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-[8px] px-1.5 py-0.5 font-bold uppercase tracking-wider">
-                        Upcoming
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-2.5 mt-4">
-                    <div className="flex items-start gap-2">
-                      {isCompleted ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      ) : (
-                        <Utensils className={`w-4 h-4 shrink-0 mt-0.5 ${isToday ? 'text-primary animate-bounce' : 'text-gray-400'}`} />
-                      )}
-                      <p className={`text-xs font-bold leading-snug ${
-                        isToday 
-                          ? 'text-text-dark font-black' 
-                          : isCompleted 
-                          ? 'text-gray-400 line-through font-semibold' 
-                          : 'text-text-dark'
-                      }`}>
-                        {mealName}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Visual Completion Indicator Dot at bottom edge */}
-                  <div className="absolute bottom-0 left-0 right-0 h-1">
-                    <div className={`h-full ${
-                      isToday 
-                        ? 'bg-primary' 
-                        : isCompleted 
-                        ? 'bg-emerald-500' 
-                        : 'bg-transparent'
-                    }`} />
-                  </div>
-                </motion.div>
-              )
-            }
-            return items
-          })()}
-        </div>
-      </Card>
-
-      {/* Delivery Preferences */}
-      <Card className="p-8 hover:translate-y-0 shadow-card bg-white border border-emerald-100 rounded-3xl" hoverable={false}>
-        <div className="flex items-center gap-3 border-b border-emerald-50 pb-4 mb-6">
-          <div className="p-2.5 bg-emerald-50 text-primary rounded-xl border border-emerald-100/50">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-extrabold text-text-dark text-lg tracking-tight">Delivery Preferences</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Your set schedule details and dietary category</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-          {/* Time Slot card */}
-          <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
-            <div className={`p-3.5 rounded-xl shrink-0 ${
-              subscription.preferenceDeliveryTime === 'dinner' 
-                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
-                : 'bg-amber-50 text-amber-600 border border-amber-100'
-            }`}>
-              {subscription.preferenceDeliveryTime === 'dinner' ? <Moon className="w-6 h-6 animate-pulse" /> : <Sun className="w-6 h-6 text-amber-500" />}
-            </div>
-            <div className="text-left">
-              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Delivery Time Slot</span>
-              <span className="text-sm font-black text-text-dark mt-1 block">
-                {subscription.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM – 9:00 PM)' : 'Lunch (12:30 PM – 2:00 PM)'}
-              </span>
-            </div>
-          </div>
-
-          {/* Meal Category card */}
-          <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
-            <div className="p-3.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl shrink-0">
-              <Leaf className="w-6 h-6" />
-            </div>
-            <div className="text-left">
-              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Meal Category</span>
-              <span className="text-sm font-black text-text-dark capitalize mt-1 block">
-                {subscription.preferenceMealCategory || 'Balanced'}
-              </span>
+                  Contact Support
+                </Button>
+              </a>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Change Request CTA box */}
-        <div className="flex flex-col sm:flex-row sm:items-center items-center justify-between gap-4 p-5 bg-emerald-50/15 border border-emerald-100/35 rounded-2xl">
-          <div className="flex items-start gap-3 text-left">
-            <div className="p-1.5 bg-emerald-100/50 rounded-lg text-primary mt-0.5">
-              <Phone className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-text-dark">Want to change your delivery settings?</p>
-              <p className="text-[10.5px] text-gray-555 font-medium leading-relaxed mt-0.5">
-                To update your time slot or meal type, simply send us a quick text on WhatsApp.
-              </p>
-            </div>
-          </div>
-          <a 
-            href="https://wa.me/923113840943?text=Hi%20Home%20Tiffin,%20I%20want%20to%20change%20my%20delivery%20preferences." 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="shrink-0"
-          >
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="rounded-xl border-emerald-600 text-emerald-800 hover:bg-emerald-50 px-4 py-2.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
-            >
-              Contact Support
-            </Button>
-          </a>
-        </div>
-      </Card>
-
-      {/* Confirmation/Truck Animation Modal */}
       <AnimatePresence>
         {isConfirmModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

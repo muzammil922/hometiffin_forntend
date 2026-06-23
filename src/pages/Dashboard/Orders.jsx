@@ -8,7 +8,8 @@ import Pagination from '../../components/ui/Pagination'
 import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
 import { formatDate, formatDateTime } from '../../services/dateFormatter'
-import { Calendar, Filter, Eye, Upload, AlertCircle, CheckCircle, User, Search, X, Truck, Phone, Mail, Download } from 'lucide-react'
+import { formatOrderAmount } from '../../services/orderStats'
+import { Calendar, Filter, Eye, Upload, AlertCircle, CheckCircle, User, Search, X, Truck, Phone, Mail, Download, Loader2, ShoppingBag, ChevronRight } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -20,6 +21,13 @@ export default function Orders() {
   const { user } = useAuthStore()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isPinned, setIsPinned] = useState(false)
+
+  // Customer pagination states
+  const [customerOrders, setCustomerOrders] = useState([])
+  const [customerPage, setCustomerPage] = useState(1)
+  const [hasMoreCustomerOrders, setHasMoreCustomerOrders] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
@@ -45,6 +53,28 @@ export default function Orders() {
   const [searchInput, setSearchInput] = useState('')
 
   const [generatingOrders, setGeneratingOrders] = useState(false)
+  const [spendStats, setSpendStats] = useState({ dailyMonthly: 0, dailyAllTime: 0 })
+
+  // Scroll listener for mobile panel pinning
+  useEffect(() => {
+    const scrollContainer = document.querySelector('main')
+    if (!scrollContainer) return
+    const handleScroll = () => {
+      const panel = document.getElementById('orders-panel')
+      if (panel) {
+        const rect = panel.getBoundingClientRect()
+        setIsPinned(scrollContainer.scrollTop > 50 && rect.top <= 56)
+      } else {
+        setIsPinned(false)
+      }
+    }
+    scrollContainer.addEventListener('scroll', handleScroll)
+    const timer = setTimeout(handleScroll, 100)
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll)
+      clearTimeout(timer)
+    }
+  }, [])
 
   const handleGenerateDailyDeliveries = async () => {
     try {
@@ -177,8 +207,8 @@ export default function Orders() {
 
   const fetchOrders = useCallback(async (pg = 1, search = '', status = '', lim = limit, currentTab = activeTab, currentSubTab = subActiveTab) => {
     try {
-      setLoading(true)
       if (user?.role === 'admin') {
+        setLoading(true)
         if (currentTab === 'one-time') {
           const params = new URLSearchParams({ page: pg, limit: lim, type: 'one-time' })
           if (search) params.set('search', search)
@@ -198,18 +228,43 @@ export default function Orders() {
           setTotalPages(res.data.totalPages)
           setPage(res.data.page)
         }
+        setLoading(false)
       } else {
-        const res = await api.get('/orders/my-orders')
-        setOrders(res.data)
-        setTotal(res.data.length)
-        setTotalPages(1)
-        setPage(1)
+        // Customer view infinite scroll
+        if (pg === 1) {
+          setLoading(true)
+        } else {
+          setLoadingMore(true)
+        }
+
+        const res = await api.get(`/orders/my-orders?page=${pg}&limit=10&type=one-time`)
+        const newOrders = res.data.data || []
+        const totalPgs = res.data.totalPages || 1
+
+        if (pg === 1) {
+          setCustomerOrders(newOrders)
+          setCustomerPage(1)
+          if (res.data.stats) {
+            setSpendStats(res.data.stats)
+          }
+        } else {
+          setCustomerOrders(prev => {
+            const existingIds = new Set(prev.map(o => o.id))
+            const filteredNew = newOrders.filter(o => !existingIds.has(o.id))
+            return [...prev, ...filteredNew]
+          })
+          setCustomerPage(pg)
+        }
+
+        setHasMoreCustomerOrders(pg < totalPgs && newOrders.length > 0)
+        setLoading(false)
+        setLoadingMore(false)
       }
     } catch (err) {
       console.error('Failed to load orders:', err)
       addToast('Failed to retrieve orders list.', 'error')
-    } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }, [user, addToast, limit, activeTab, subActiveTab])
 
@@ -248,6 +303,25 @@ export default function Orders() {
       fetchActiveSubsCount()
     }
   }, [user, fetchActiveSubsCount])
+
+  // Infinite Scroll listener for Customer (via main scroll container)
+  useEffect(() => {
+    if (user?.role === 'admin') return
+
+    const scrollContainer = document.querySelector('main')
+    if (!scrollContainer) return
+
+    const handleScroll = () => {
+      if (loading || loadingMore || !hasMoreCustomerOrders) return
+      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 150
+      if (isNearBottom) {
+        fetchOrders(customerPage + 1)
+      }
+    }
+
+    scrollContainer.addEventListener('scroll', handleScroll)
+    return () => scrollContainer.removeEventListener('scroll', handleScroll)
+  }, [user?.role, loading, loadingMore, hasMoreCustomerOrders, customerPage, fetchOrders])
 
   // Apply filters/search – reset to page 1
   const applySearch = () => {
@@ -352,24 +426,200 @@ export default function Orders() {
     return 'No address provided'
   }
 
-  // Client side filtering for customers
   const displayedOrders = user?.role === 'admin'
     ? orders
-    : (statusFilter ? orders.filter(o => o.status === statusFilter) : orders)
+    : (statusFilter ? customerOrders.filter(o => o.status === statusFilter) : customerOrders)
 
-  return (
-    <div className="flex flex-col gap-8 text-left w-full pb-20">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text-dark">
-            {user?.role === 'admin' ? 'All Customer Orders' : 'My Orders'}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {user?.role === 'admin'
-              ? 'View, track, and manage status and rider dispatches for all customer tiffins.'
-              : 'Track and view history of all your tiffin requests.'}
-          </p>
+  // Stats for mobile header card
+  const totalOrderCount = customerOrders.length
+  const dailyStats = spendStats
+  const monthlySpent = dailyStats.dailyMonthly
+
+  // Customer order status style helpers
+  const getOrderCardBorder = (status) => {
+    switch (status) {
+      case 'Delivered': return 'border-emerald-100'
+      case 'Preparing': return 'border-amber-100'
+      case 'Picked Up': return 'border-sky-100'
+      case 'Nearby': return 'border-sky-100'
+      default: return 'border-slate-100'
+    }
+  }
+
+  const orderDetailModal = (
+    <Modal
+      isOpen={isModalOpen}
+      onClose={() => setIsModalOpen(false)}
+      title={`Order Details: ${selectedOrder?.orderNumber}`}
+    >
+      {selectedOrder && (
+        <div className="flex flex-col gap-6 text-left text-sm max-h-[75vh] overflow-y-auto pr-1">
+          <div className="flex justify-between items-center border-b border-emerald-50 pb-3">
+            <div>
+              <p className="text-xs text-gray-400 font-semibold">Order Date</p>
+              <p className="font-bold text-text-dark mt-0.5">{formatDateTime(selectedOrder.createdAt)}</p>
+            </div>
+            <Badge variant={getBadgeVariant(selectedOrder.status)}>{selectedOrder.status}</Badge>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-400 font-semibold mb-2">Items Breakdown</p>
+            <div className="bg-background rounded-2xl border border-emerald-50 p-4 flex flex-col gap-3">
+              {Array.isArray(selectedOrder.items) && selectedOrder.items.map((item, idx) => (
+                <div key={idx} className="flex flex-col border-b border-emerald-50/55 last:border-0 pb-2.5 last:pb-0">
+                  <div className="flex justify-between font-semibold text-text-dark text-xs">
+                    <span>{item.name} (Qty: {item.quantity})</span>
+                    <span>PKR {item.price * item.quantity}</span>
+                  </div>
+                  {item.portion && (
+                    <p className="text-[10px] text-gray-400 font-medium mt-0.5">Portion size: {item.portion}</p>
+                  )}
+                  {item.addons && (item.addons.coldDrink || item.addons.meetha || item.addons.salad || item.addons.extraRoti) && (
+                    <p className="text-[10px] text-emerald-800 font-semibold mt-1">
+                      + Addons:{' '}
+                      {[item.addons.coldDrink?.name, item.addons.meetha?.name, item.addons.salad?.name, item.addons.extraRoti ? 'Extra Roti' : null].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-400 font-semibold">Payment Method</p>
+              <p className="font-semibold text-text-dark mt-0.5">{selectedOrder.paymentMethod}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-semibold">Total Invoice</p>
+              <p className="font-bold text-primary mt-0.5">PKR {formatOrderAmount(selectedOrder.billingTotal)}</p>
+            </div>
+          </div>
+
+          {selectedOrder.rider && (
+            <div className="bg-emerald-50/20 border border-emerald-155/35 p-4 rounded-2xl flex flex-col gap-2">
+              <p className="text-xs text-gray-400 font-semibold flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-primary" /> Assigned Delivery Rider
+              </p>
+              <div className="flex flex-col gap-1 text-xs font-semibold text-text-dark">
+                <p>Name: <span className="text-gray-500 font-medium">{selectedOrder.rider.name}</span></p>
+                <p>Phone: <span className="text-gray-500 font-medium">{selectedOrder.rider.phone || 'N/A'}</span></p>
+              </div>
+            </div>
+          )}
+
+          {user?.role === 'admin' && (
+            <div className="bg-gray-50 border border-gray-150 p-4 rounded-2xl flex flex-col gap-2">
+              <p className="text-xs text-gray-400 font-semibold">Customer Information</p>
+              <div className="flex flex-col gap-1 text-xs font-semibold text-text-dark">
+                <p>Name: <span className="text-gray-500 font-medium">{selectedOrder.customerName}</span></p>
+                <p>Phone: <span className="text-gray-500 font-medium">{selectedOrder.customerPhone || 'N/A'}</span></p>
+                <p>Delivery Address: <span className="text-gray-500 font-medium">{selectedOrder.customerAddress}</span></p>
+                {selectedOrder.deliveryInstructions && (
+                  <p>Instructions: <span className="text-gray-500 font-medium italic">"{selectedOrder.deliveryInstructions}"</span></p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {user?.role === 'admin' && (
+            <div className="bg-emerald-50/30 border border-emerald-100/50 p-4 rounded-2xl flex flex-col gap-3">
+              <h5 className="font-bold text-text-dark text-xs">Admin Actions: Dispatch & Status</h5>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">Update Order Status</label>
+                  <select
+                    value={selectedOrder.status}
+                    onChange={(e) => handleUpdateOrder(selectedOrder.id, e.target.value, selectedOrder.riderId)}
+                    disabled={updatingStatus}
+                    className="w-full p-2.5 rounded-xl border border-emerald-150 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-semibold bg-white text-text-dark cursor-pointer"
+                  >
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Preparing">Preparing</option>
+                    <option value="Picked Up">Picked Up</option>
+                    <option value="Nearby">Nearby</option>
+                    <option value="Delivered">Delivered</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">Assign Rider</label>
+                  <select
+                    value={selectedOrder.riderId || ''}
+                    onChange={(e) => handleUpdateOrder(selectedOrder.id, selectedOrder.status, e.target.value || null)}
+                    disabled={updatingStatus}
+                    className="w-full p-2.5 rounded-xl border border-emerald-155 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-semibold bg-white text-text-dark cursor-pointer"
+                  >
+                    <option value="">Unassigned</option>
+                    {riders.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name} ({r.phone || 'No Phone'})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedOrder.paymentMethod === 'Bank Transfer' && (
+            <div className="bg-emerald-50/40 border border-emerald-100 p-4 rounded-2xl flex flex-col gap-3">
+              <div className="flex gap-2">
+                <AlertCircle className="w-5 h-5 text-emerald-800 shrink-0" />
+                <div>
+                  <h5 className="font-bold text-emerald-900 text-xs">Bank Transfer Verification</h5>
+                  <p className="text-[10px] text-gray-500 leading-normal mt-0.5 font-semibold">
+                    Please transfer PKR {formatOrderAmount(selectedOrder.billingTotal)} to Alfalah Bank (Ac: Home Tiffin, IBAN: PK12ALFH00003001234567) and upload the receipt screenshot below.
+                  </p>
+                </div>
+              </div>
+              {selectedOrder.paymentScreenshotUrl ? (
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 border-t border-emerald-100 pt-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <span>Receipt screenshot has been uploaded. Status: <span className="font-bold uppercase">{selectedOrder.paymentStatus}</span></span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 border-t border-emerald-100 pt-3">
+                  <input type="file" id="payment-receipt" accept="image/*" onChange={handleScreenshotUpload} className="hidden" disabled={uploading} />
+                  <label htmlFor="payment-receipt" className="bg-primary hover:bg-primary/95 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all">
+                    <Upload className="w-3.5 h-3.5" />
+                    {uploading ? 'Uploading...' : 'Choose Screenshot'}
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-medium">JPG, PNG, WEBP max 5MB</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs text-gray-400 font-semibold mb-3">Order Status Timeline</p>
+            <div className="flex flex-col gap-4 border-l-2 border-emerald-100 pl-4 ml-2">
+              {[
+                { label: 'Order Confirmed', active: true },
+                { label: 'Kitchen Preparing', active: ['Preparing', 'Picked Up', 'Nearby', 'Delivered'].includes(selectedOrder.status) },
+                { label: 'Out for Delivery', active: ['Picked Up', 'Nearby', 'Delivered'].includes(selectedOrder.status) },
+                { label: 'Delivered', active: selectedOrder.status === 'Delivered' }
+              ].map((step, index) => (
+                <div key={index} className="relative">
+                  <span className={`absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 bg-white ${step.active ? 'border-primary bg-primary' : 'border-gray-200'}`} />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={`font-semibold ${step.active ? 'text-text-dark' : 'text-gray-400'}`}>{step.label}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+      )}
+    </Modal>
+  )
+
+  // ─── ADMIN ALWAYS GETS FULL DESKTOP VIEW ───────────────────────────────────
+  if (user?.role === 'admin') {
+    return (
+      <div className="flex flex-col gap-8 text-left w-full pb-20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-text-dark">All Customer Orders</h1>
+            <p className="text-sm text-gray-500">View, track, and manage status and rider dispatches for all customer tiffins.</p>
+          </div>
 
         {user?.role === 'admin' && (
           <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
@@ -709,7 +959,7 @@ export default function Orders() {
                   <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-emerald-50 pt-4 sm:pt-0">
                     <div className="text-left sm:text-right">
                       <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Total Amount</span>
-                      <span className="text-sm font-bold text-primary">PKR {order.billingTotal}</span>
+                      <span className="text-sm font-bold text-primary">PKR {formatOrderAmount(order.billingTotal)}</span>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => handleViewOrder(order)} className="flex items-center gap-1.5">
                       <Eye className="w-4 h-4" />
@@ -732,172 +982,239 @@ export default function Orders() {
               limit={limit} onPageChange={handlePageChange} onLimitChange={handleLimitChange}
             />
           )}
+
+          {/* Infinite scroll state indicators – customer only */}
+          {user?.role !== 'admin' && loadingMore && (
+            <div className="flex justify-center py-6">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          )}
+
+          {user?.role !== 'admin' && !hasMoreCustomerOrders && customerOrders.length > 0 && (
+            <p className="text-center text-xs text-gray-400 font-extrabold py-6 border-t border-gray-100/50 mt-4 uppercase tracking-wider">
+              🎉 You have reached the end of your order history
+            </p>
+          )}
         </div>
       )}
 
-      {/* OrderDetailModal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={`Order Details: ${selectedOrder?.orderNumber}`}
-      >
-        {selectedOrder && (
-          <div className="flex flex-col gap-6 text-left text-sm max-h-[75vh] overflow-y-auto pr-1">
-            <div className="flex justify-between items-center border-b border-emerald-50 pb-3">
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">Order Date</p>
-                <p className="font-bold text-text-dark mt-0.5">{formatDateTime(selectedOrder.createdAt)}</p>
-              </div>
-              <Badge variant={getBadgeVariant(selectedOrder.status)}>{selectedOrder.status}</Badge>
-            </div>
+      {orderDetailModal}
+    </div>
+    )
+  }
 
-            <div>
-              <p className="text-xs text-gray-400 font-semibold mb-2">Items Breakdown</p>
-              <div className="bg-background rounded-2xl border border-emerald-50 p-4 flex flex-col gap-3">
-                {Array.isArray(selectedOrder.items) && selectedOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex flex-col border-b border-emerald-50/55 last:border-0 pb-2.5 last:pb-0">
-                    <div className="flex justify-between font-semibold text-text-dark text-xs">
-                      <span>{item.name} (Qty: {item.quantity})</span>
-                      <span>PKR {item.price * item.quantity}</span>
+  // ─── CUSTOMER VIEW ──────────────────────────────────────────
+  return (
+    <div className="w-full">
+      {/* ─── DESKTOP VIEW ─── */}
+      <div className="hidden md:flex flex-col gap-8 text-left w-full pb-20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-primary tracking-tight">My Orders</h1>
+            <p className="text-sm text-gray-550 font-medium">Track your tiffin orders and delivery status.</p>
+          </div>
+          <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-2xl border border-emerald-100 shadow-subtle w-fit shrink-0">
+            <Filter className="w-4 h-4 text-primary" />
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+              className="text-xs font-semibold text-text-dark bg-transparent focus:outline-none cursor-pointer"
+            >
+              <option value="">All Statuses</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Preparing">Preparing</option>
+              <option value="Picked Up">Picked Up</option>
+              <option value="Nearby">Nearby</option>
+              <option value="Delivered">Delivered</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col gap-4 animate-pulse">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white rounded-3xl border border-emerald-100/50 shadow-sm">
+                <div className="flex flex-col gap-2">
+                  <div className="h-4 w-24 bg-gray-200 rounded-lg" />
+                  <div className="h-3 w-64 bg-gray-100 rounded-lg" />
+                </div>
+                <div className="h-9 w-24 bg-gray-100 rounded-xl" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {displayedOrders.map((order) => {
+              const itemsStr = Array.isArray(order.items)
+                ? order.items.map((i) => `${i.name} (Qty: ${i.quantity})`).join(', ')
+                : 'Tiffin Order'
+              return (
+                <Card key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 hover:translate-y-0" hoverable={false}>
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-text-dark">{order.orderNumber}</span>
+                      <Badge variant={getBadgeVariant(order.status)}>{order.status}</Badge>
+                      {order.paymentStatus === 'submitted' && <Badge variant="primary">Proof Submitted</Badge>}
+                      {order.paymentStatus === 'verified' && <Badge variant="success">Paid</Badge>}
                     </div>
-                    {item.portion && (
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">Portion size: {item.portion}</p>
-                    )}
-                    {item.addons && (item.addons.coldDrink || item.addons.meetha || item.addons.salad || item.addons.extraRoti) && (
-                      <p className="text-[10px] text-emerald-800 font-semibold mt-1">
-                        + Addons:{' '}
-                        {[item.addons.coldDrink?.name, item.addons.meetha?.name, item.addons.salad?.name, item.addons.extraRoti ? 'Extra Roti' : null].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">Payment Method</p>
-                <p className="font-semibold text-text-dark mt-0.5">{selectedOrder.paymentMethod}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-semibold">Total Invoice</p>
-                <p className="font-bold text-primary mt-0.5">PKR {selectedOrder.billingTotal}</p>
-              </div>
-            </div>
-
-            {selectedOrder.rider && (
-              <div className="bg-emerald-50/20 border border-emerald-155/35 p-4 rounded-2xl flex flex-col gap-2">
-                <p className="text-xs text-gray-400 font-semibold flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-primary" /> Assigned Delivery Rider
-                </p>
-                <div className="flex flex-col gap-1 text-xs font-semibold text-text-dark">
-                  <p>Name: <span className="text-gray-500 font-medium">{selectedOrder.rider.name}</span></p>
-                  <p>Phone: <span className="text-gray-500 font-medium">{selectedOrder.rider.phone || 'N/A'}</span></p>
-                </div>
-              </div>
-            )}
-
-            {user?.role === 'admin' && (
-              <div className="bg-gray-50 border border-gray-150 p-4 rounded-2xl flex flex-col gap-2">
-                <p className="text-xs text-gray-400 font-semibold">Customer Information</p>
-                <div className="flex flex-col gap-1 text-xs font-semibold text-text-dark">
-                  <p>Name: <span className="text-gray-500 font-medium">{selectedOrder.customerName}</span></p>
-                  <p>Phone: <span className="text-gray-500 font-medium">{selectedOrder.customerPhone || 'N/A'}</span></p>
-                  <p>Delivery Address: <span className="text-gray-500 font-medium">{selectedOrder.customerAddress}</span></p>
-                  {selectedOrder.deliveryInstructions && (
-                    <p>Instructions: <span className="text-gray-500 font-medium italic">"{selectedOrder.deliveryInstructions}"</span></p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {user?.role === 'admin' && (
-              <div className="bg-emerald-50/30 border border-emerald-100/50 p-4 rounded-2xl flex flex-col gap-3">
-                <h5 className="font-bold text-text-dark text-xs">Admin Actions: Dispatch & Status</h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">Update Order Status</label>
-                    <select
-                      value={selectedOrder.status}
-                      onChange={(e) => handleUpdateOrder(selectedOrder.id, e.target.value, selectedOrder.riderId)}
-                      disabled={updatingStatus}
-                      className="w-full p-2.5 rounded-xl border border-emerald-150 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-semibold bg-white text-text-dark cursor-pointer"
-                    >
-                      <option value="Confirmed">Confirmed</option>
-                      <option value="Preparing">Preparing</option>
-                      <option value="Picked Up">Picked Up</option>
-                      <option value="Nearby">Nearby</option>
-                      <option value="Delivered">Delivered</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">Assign Rider</label>
-                    <select
-                      value={selectedOrder.riderId || ''}
-                      onChange={(e) => handleUpdateOrder(selectedOrder.id, selectedOrder.status, e.target.value || null)}
-                      disabled={updatingStatus}
-                      className="w-full p-2.5 rounded-xl border border-emerald-155 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-semibold bg-white text-text-dark cursor-pointer"
-                    >
-                      <option value="">Unassigned</option>
-                      {riders.map((r) => (
-                        <option key={r.id} value={r.id}>{r.name} ({r.phone || 'No Phone'})</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {selectedOrder.paymentMethod === 'Bank Transfer' && (
-              <div className="bg-emerald-50/40 border border-emerald-100 p-4 rounded-2xl flex flex-col gap-3">
-                <div className="flex gap-2">
-                  <AlertCircle className="w-5 h-5 text-emerald-800 shrink-0" />
-                  <div>
-                    <h5 className="font-bold text-emerald-900 text-xs">Bank Transfer Verification</h5>
-                    <p className="text-[10px] text-gray-500 leading-normal mt-0.5 font-semibold">
-                      Please transfer PKR {selectedOrder.billingTotal} to Alfalah Bank (Ac: Home Tiffin, IBAN: PK12ALFH00003001234567) and upload the receipt screenshot below.
-                    </p>
-                  </div>
-                </div>
-                {selectedOrder.paymentScreenshotUrl ? (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 border-t border-emerald-100 pt-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    <span>Receipt screenshot has been uploaded. Status: <span className="font-bold uppercase">{selectedOrder.paymentStatus}</span></span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 border-t border-emerald-100 pt-3">
-                    <input type="file" id="payment-receipt" accept="image/*" onChange={handleScreenshotUpload} className="hidden" disabled={uploading} />
-                    <label htmlFor="payment-receipt" className="bg-primary hover:bg-primary/95 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all">
-                      <Upload className="w-3.5 h-3.5" />
-                      {uploading ? 'Uploading...' : 'Choose Screenshot'}
-                    </label>
-                    <span className="text-[10px] text-gray-400 font-medium">JPG, PNG, WEBP max 5MB</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div>
-              <p className="text-xs text-gray-400 font-semibold mb-3">Order Status Timeline</p>
-              <div className="flex flex-col gap-4 border-l-2 border-emerald-100 pl-4 ml-2">
-                {[
-                  { label: 'Order Confirmed', active: true },
-                  { label: 'Kitchen Preparing', active: ['Preparing', 'Picked Up', 'Nearby', 'Delivered'].includes(selectedOrder.status) },
-                  { label: 'Out for Delivery', active: ['Picked Up', 'Nearby', 'Delivered'].includes(selectedOrder.status) },
-                  { label: 'Delivered', active: selectedOrder.status === 'Delivered' }
-                ].map((step, index) => (
-                  <div key={index} className="relative">
-                    <span className={`absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 bg-white ${step.active ? 'border-primary bg-primary' : 'border-gray-200'}`} />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={`font-semibold ${step.active ? 'text-text-dark' : 'text-gray-400'}`}>{step.label}</span>
+                    <p className="text-xs text-gray-500 font-semibold truncate max-w-md">{itemsStr}</p>
+                    <div className="flex items-center mt-1.5">
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-primary px-2.5 py-1 rounded-xl border border-emerald-100/60 text-[10.5px] font-bold">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        {formatDateTime(order.createdAt)}
+                      </span>
                     </div>
                   </div>
-                ))}
+                  <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 border-emerald-50 pt-4 sm:pt-0">
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Total Amount</span>
+                      <span className="text-sm font-bold text-primary">PKR {formatOrderAmount(order.billingTotal)}</span>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => handleViewOrder(order)} className="flex items-center gap-1.5">
+                      <Eye className="w-4 h-4" />
+                      Details
+                    </Button>
+                  </div>
+                </Card>
+              )
+            })}
+            {displayedOrders.length === 0 && (
+              <p className="text-gray-400 py-12 text-center text-sm font-medium">No order logs found.</p>
+            )}
+            {loadingMore && (
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              </div>
+            )}
+            {!hasMoreCustomerOrders && customerOrders.length > 0 && (
+              <p className="text-center text-xs text-gray-400 font-extrabold py-6 border-t border-gray-100/50 mt-4 uppercase tracking-wider">
+                You have reached the end of your order history
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ─── MOBILE VIEW ─── */}
+      <div className="md:hidden flex flex-col -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] bg-[#F4F6F5] text-left relative">
+        <div className="sticky top-[-16px] sm:top-[-24px] z-0 bg-gradient-to-br from-[#065F46] via-[#044e39] to-emerald-950 pt-10 pb-20 px-6 rounded-b-[40px] text-white overflow-hidden flex flex-col gap-6">
+          <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl" />
+          <div className="relative z-10">
+            <h1 className="text-2xl font-black tracking-tight">My Orders</h1>
+            <p className="text-xs text-emerald-200/80 font-medium mt-1">Track your tiffin orders and delivery status</p>
+          </div>
+          <div className="relative h-44 mt-2 select-none">
+            {/* Background card (stacked behind) */}
+            <div className="absolute top-2 left-4 right-4 h-36 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-sm z-0 transform rotate-1 scale-95 opacity-60" />
+
+            {/* Main card */}
+            <div className="absolute top-0 left-0 right-0 h-38 bg-gradient-to-tr from-white/15 to-white/5 border border-white/20 rounded-3xl backdrop-blur-lg shadow-xl p-5 flex flex-col justify-between z-10">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] text-emerald-200/80 font-extrabold uppercase tracking-wider">Order Summary</p>
+                  <h2 className="text-lg font-black mt-0.5 tracking-tight">{totalOrderCount} Total Orders</h2>
+                </div>
+                <ShoppingBag className="w-6 h-6 text-emerald-300" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[9px] text-emerald-300/80 font-extrabold uppercase">Active</p>
+                  <p className="text-sm font-black">{totalOrderCount}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-emerald-300/80 font-extrabold uppercase">Monthly Spent</p>
+                  <p className="text-sm font-black">PKR {formatOrderAmount(monthlySpent)}</p>
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </Modal>
+        </div>
+
+        <div
+          id="orders-panel"
+          style={{ borderTopLeftRadius: isPinned ? '0px' : '36px', borderTopRightRadius: isPinned ? '0px' : '36px' }}
+          className="bg-white -mt-16 pt-0 px-5 pb-24 relative z-20 min-h-screen shadow-card flex flex-col gap-6 text-left transition-all duration-300"
+        >
+          <div
+            style={{ borderTopLeftRadius: isPinned ? '0px' : '36px', borderTopRightRadius: isPinned ? '0px' : '36px' }}
+            className="sticky top-[-16px] sm:top-[-24px] z-30 bg-white pt-8 pb-4 flex flex-col gap-4 -mx-5 px-5 border-b border-slate-100 transition-all duration-300"
+          >
+            <div className="flex items-center gap-2 bg-slate-100/85 px-3.5 py-2.5 rounded-2xl border border-slate-200/50">
+              <Filter className="w-4 h-4 text-primary shrink-0" />
+              <select
+                value={statusFilter}
+                onChange={(e) => handleStatusFilterChange(e.target.value)}
+                className="w-full text-xs font-black text-text-dark bg-transparent focus:outline-none cursor-pointer"
+              >
+                <option value="">All Statuses</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Preparing">Preparing</option>
+                <option value="Picked Up">Picked Up</option>
+                <option value="Nearby">Nearby</option>
+                <option value="Delivered">Delivered</option>
+              </select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex flex-col gap-3 animate-pulse">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-28 bg-white border border-emerald-50 rounded-2xl" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {displayedOrders.map((order) => {
+                const itemsStr = Array.isArray(order.items)
+                  ? order.items.map((i) => `${i.name} (Qty: ${i.quantity})`).join(', ')
+                  : 'Tiffin Order'
+                return (
+                  <button
+                    key={order.id}
+                    type="button"
+                    onClick={() => handleViewOrder(order)}
+                    className={`relative flex flex-col rounded-[28px] border ${getOrderCardBorder(order.status)} bg-white shadow-sm text-left w-full cursor-pointer p-4 gap-3`}
+                  >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-wider">
+                          {order.orderNumber}
+                        </span>
+                        <Badge variant={getBadgeVariant(order.status)}>{order.status}</Badge>
+                      </div>
+                      <p className="text-xs font-semibold text-gray-700 leading-relaxed line-clamp-2">{itemsStr}</p>
+                      <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-500 px-2.5 py-1 rounded-xl border border-gray-100 text-[10.5px] font-bold w-fit">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        {formatDateTime(order.createdAt)}
+                      </span>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <div>
+                          <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Total Amount</p>
+                          <p className="text-base font-black text-primary">PKR {formatOrderAmount(order.billingTotal)}</p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-300" />
+                      </div>
+                  </button>
+                )
+              })}
+              {displayedOrders.length === 0 && (
+                <p className="text-gray-400 py-12 text-center text-sm font-medium">No order logs found.</p>
+              )}
+              {loadingMore && (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                </div>
+              )}
+              {!hasMoreCustomerOrders && customerOrders.length > 0 && (
+                <p className="text-center text-xs text-gray-400 font-extrabold py-6 border-t border-gray-100/50 mt-4 uppercase tracking-wider">
+                  You have reached the end of your order history
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {orderDetailModal}
     </div>
   )
 }
