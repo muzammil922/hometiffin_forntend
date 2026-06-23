@@ -1045,8 +1045,10 @@ export default function Subscription() {
     ? `${subscription.companyName} Corporate Plan`
     : (subscription.planType === 'weekly' ? 'Weekly Tiffin Plan' : 'Monthly Tiffin Plan')
   const matchingPlan = plans.find(p => p.planType === subscription.planType)
-  const totalMeals = matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24)
-  const usedMeals = Math.max(0, totalMeals - subscription.mealsRemaining)
+  const totalMeals = subscription.totalMealsInPlan
+    ?? (matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24))
+  const usedMeals = subscription.mealsUsed
+    ?? Math.max(0, totalMeals - subscription.mealsRemaining)
   const progressPercent = totalMeals > 0 ? Math.round((usedMeals / totalMeals) * 100) : 0
   const renewalDate = subscription.endDate ? formatDate(subscription.endDate) : 'N/A'
 
@@ -1181,26 +1183,36 @@ export default function Subscription() {
 
         {/* Meal Progress Bar */}
         <div className="mt-6 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
-          <div className="flex justify-between items-center text-xs font-bold mb-2.5">
-            <span className="text-text-dark">Meal Completion Progress</span>
-            <span className="text-primary font-black">
-              {subscription.isCompany 
-                ? `${usedMeals * subscription.workerCount} / ${totalMeals * subscription.workerCount} Meals Received` 
-                : `${usedMeals} / ${totalMeals} Meals Received`
-              }
-            </span>
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Meal Progress</p>
+              <p className="text-xs font-bold text-text-dark">
+                {subscription.isCompany
+                  ? `${usedMeals * subscription.workerCount} meals delivered`
+                  : `${usedMeals} meals delivered`}
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-2xl font-black text-primary leading-none">
+                {subscription.isCompany
+                  ? `${usedMeals * subscription.workerCount}`
+                  : usedMeals}
+              </span>
+              <span className="text-xs font-bold text-gray-400 ml-1">
+                / {subscription.isCompany ? totalMeals * subscription.workerCount : totalMeals}
+              </span>
+            </div>
           </div>
-          <div className="w-full bg-gray-150 h-3.5 rounded-full overflow-hidden border border-emerald-100/50">
+          <div className="w-full bg-gray-150 h-4 rounded-full overflow-hidden border border-emerald-100/50">
             <div
               className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-400 font-semibold mt-2.5 text-left">
-            {subscription.isCompany 
-              ? `${subscription.mealsRemaining * subscription.workerCount} total meals (${subscription.mealsRemaining} days remaining) in your Corporate Plan.` 
-              : `${subscription.mealsRemaining} meals remaining in your ${planLabel}.`
-            }
+          <p className="text-[11px] text-gray-400 font-semibold mt-2 text-left">
+            {subscription.isCompany
+              ? `${subscription.mealsRemaining * subscription.workerCount} meals remaining`
+              : `${subscription.mealsRemaining} meals remaining`}
           </p>
         </div>
       </Card>
@@ -1217,14 +1229,15 @@ export default function Subscription() {
               <p className="text-xs text-gray-500 mt-0.5">Track your daily deliveries and meal menus week-by-week</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {subscription.planType === 'monthly' && (
-              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                Day {usedMeals + 1} of 30
-              </span>
-            )}
-            <span className="text-xs font-bold text-gray-550 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-              {usedMeals} Completed • {subscription.mealsRemaining} Remaining
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 flex items-center gap-2">
+              {subscription.planType === 'monthly' && (
+                <>
+                  <span className="text-emerald-700">Day {usedMeals + 1} of 30</span>
+                  <span className="text-gray-300">•</span>
+                </>
+              )}
+              <span>{usedMeals} Completed • {subscription.mealsRemaining} Remaining</span>
             </span>
           </div>
         </div>
@@ -1275,9 +1288,9 @@ export default function Subscription() {
               return (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50/15 border border-emerald-100/40 p-4 rounded-2xl">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-text-dark">Week {activeWeek} Delivery Progress</span>
+                    <span className="text-xs font-black text-text-dark">Week {activeWeek} Progress</span>
                     <span className="text-[10px] bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-md">
-                      {completed} of {total} Tiffins Received
+                      {completed} of {total} Received
                     </span>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-48">
@@ -1432,7 +1445,7 @@ export default function Subscription() {
         </div>
 
         {/* Change Request CTA box */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-emerald-50/15 border border-emerald-100/35 rounded-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center items-center justify-between gap-4 p-5 bg-emerald-50/15 border border-emerald-100/35 rounded-2xl">
           <div className="flex items-start gap-3 text-left">
             <div className="p-1.5 bg-emerald-100/50 rounded-lg text-primary mt-0.5">
               <Phone className="w-4 h-4" />

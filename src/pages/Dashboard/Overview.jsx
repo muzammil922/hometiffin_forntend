@@ -4,17 +4,61 @@ import { useAuthStore } from '../../store/authStore'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import { Calendar, CreditCard, ShoppingBag, Clock, Truck, Utensils, MapPin, CheckCircle2, Pause, ChevronRight } from 'lucide-react'
+import Modal from '../../components/ui/Modal'
+import { Calendar, Utensils, MapPin, CheckCircle2, ChevronRight, Pencil, User, Phone, Loader2 } from 'lucide-react'
 import api from '../../services/api'
 import io from 'socket.io-client'
 import { formatDate } from '../../services/dateFormatter'
+import { useToastStore } from '../../store/toastStore'
 
 export default function Overview() {
-  const { user, fetchProfile } = useAuthStore()
+  const { user, fetchProfile, updateProfile } = useAuthStore()
+  const { addToast } = useToastStore()
   const [orders, setOrders] = useState([])
   const [activeOrder, setActiveOrder] = useState(null)
   const [activeOrderStatus, setActiveOrderStatus] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // ── Edit Profile Modal State ──
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openEditModal = () => {
+    setEditName(user?.name || '')
+    setEditPhone(user?.phone || '')
+    setEditAddress(user?.savedAddresses?.[0]?.address || user?.address || '')
+    setEditModalOpen(true)
+  }
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault()
+    if (!editName.trim()) {
+      addToast('Name cannot be empty.', 'error')
+      return
+    }
+    try {
+      setEditSaving(true)
+      const payload = {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        savedAddresses: editAddress.trim()
+          ? [{ label: 'Home', address: editAddress.trim() }]
+          : (user?.savedAddresses || [])
+      }
+      const res = await api.put('/users/profile', payload)
+      // Update both store + localStorage
+      updateProfile(res.data)
+      addToast('Profile updated successfully!', 'success')
+      setEditModalOpen(false)
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to update profile.', 'error')
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   // Active Subscription Stats
   const activeSub = user?.subscriptions?.[0]
@@ -109,6 +153,16 @@ export default function Overview() {
 
   useEffect(() => {
     fetchData()
+
+    // Re-fetch profile silently whenever user comes back to this tab
+    // so subscription status stays in sync with My Subscription page
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchProfile()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   // Timer countdown hook
@@ -574,15 +628,29 @@ export default function Overview() {
           
           {/* Delivery Configuration Address Card */}
           <Card className="p-6 border border-gray-100 bg-white shadow-sm rounded-2xl" hoverable={false}>
-            <h3 className="font-extrabold text-text-dark text-base border-b border-gray-100 pb-3 mb-4">
-              Delivery Info
-            </h3>
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+              <h3 className="font-extrabold text-text-dark text-base">Delivery Info</h3>
+              <button
+                onClick={openEditModal}
+                className="flex items-center gap-1 text-[10px] font-bold text-primary hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer border border-emerald-100"
+              >
+                <Pencil className="w-3 h-3" />
+                Edit
+              </button>
+            </div>
             
             <div className="flex flex-col gap-4 text-xs font-semibold text-gray-650">
               <div>
+                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5">Full Name</span>
+                <span className="text-text-dark font-bold text-xs leading-relaxed">
+                  {user?.name || '—'}
+                </span>
+              </div>
+
+              <div>
                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-0.5">Delivery Address</span>
                 <span className="text-text-dark font-bold text-xs leading-relaxed">
-                  {user?.savedAddresses?.[0]?.address || user?.address || 'Gulshan-e-Iqbal, Karachi'}
+                  {user?.savedAddresses?.[0]?.address || user?.address || 'Not set'}
                 </span>
               </div>
 
@@ -624,6 +692,85 @@ export default function Overview() {
         </div>
 
       </div>
+
+      {/* ── Edit Profile Modal ── */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => !editSaving && setEditModalOpen(false)}
+        title="Edit Profile"
+        id="edit-profile-modal"
+      >
+        <form onSubmit={handleProfileSave} className="flex flex-col gap-5">
+          {/* Name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
+              <User className="w-3 h-3" /> Full Name
+            </label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="e.g. Ali Hassan"
+              required
+              className="w-full px-4 py-3 rounded-2xl border border-emerald-100 bg-white text-gray-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder-gray-400"
+            />
+          </div>
+
+          {/* Phone */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
+              <Phone className="w-3 h-3" /> Contact Number
+            </label>
+            <input
+              type="tel"
+              value={editPhone}
+              onChange={(e) => setEditPhone(e.target.value)}
+              placeholder="e.g. 03xxxxxxxxx"
+              className="w-full px-4 py-3 rounded-2xl border border-emerald-100 bg-white text-gray-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder-gray-400"
+            />
+          </div>
+
+          {/* Address */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> Delivery Address
+            </label>
+            <textarea
+              rows={3}
+              value={editAddress}
+              onChange={(e) => setEditAddress(e.target.value)}
+              placeholder="e.g. Flat 5, Block B, Gulshan-e-Iqbal, Karachi"
+              className="w-full px-4 py-3 rounded-2xl border border-emerald-100 bg-white text-gray-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none placeholder-gray-400"
+            />
+          </div>
+
+          {/* Info note */}
+          <p className="text-[11px] text-gray-400 font-medium leading-relaxed bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
+            Changes apply immediately to your profile and delivery info shown across the dashboard.
+          </p>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setEditModalOpen(false)}
+              disabled={editSaving}
+              className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={editSaving}
+              className="flex-1 py-3 rounded-2xl bg-primary text-white text-sm font-bold hover:bg-emerald-700 transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {editSaving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+              ) : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
     </div>
   )

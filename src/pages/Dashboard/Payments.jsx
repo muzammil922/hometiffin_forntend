@@ -196,6 +196,13 @@ export default function Payments() {
     }
   }
 
+  const formatPaymentMethod = (method = '') => {
+    const m = method.toLowerCase()
+    if (m.includes('subscription') || m === 'subscription_delivery') return 'Sub-D'
+    if (m === 'cash on delivery' || m === 'cod') return 'COD'
+    return method
+  }
+
   if (user?.role === 'admin') {
     return (
       <div className="flex flex-col gap-8 text-left w-full pb-20">
@@ -462,7 +469,7 @@ export default function Payments() {
                           <td className="py-4 text-gray-500">{formatDate(pay.createdAt)}</td>
                           <td className="py-4 text-gray-700 truncate max-w-xs">{itemsStr}</td>
                           <td className="py-4 text-primary font-bold">PKR {pay.billingTotal}</td>
-                          <td className="py-4"><Badge variant="primary">{pay.paymentMethod}</Badge></td>
+                          <td className="py-4"><Badge variant="primary">{formatPaymentMethod(pay.paymentMethod)}</Badge></td>
                           <td className="py-4">{getStatusBadge(pay.paymentStatus)}</td>
                           <td className="py-4 text-right">
                             <button onClick={() => handleDownloadInvoice(pay)} className="p-1.5 rounded-xl hover:bg-accent-light text-primary transition-all cursor-pointer" aria-label="Download Invoice">
@@ -479,80 +486,80 @@ export default function Payments() {
                 )}
               </div>
 
-              {/* MOBILE LIST VIEW */}
-              <div className="md:hidden flex flex-col gap-4.5">
+              {/* MOBILE LIST VIEW - Daily Orders */}
+              <div className="md:hidden flex flex-col gap-3">
                 {orders.map((pay) => {
                   const itemsStr = Array.isArray(pay.items)
                     ? pay.items.map(i => `${i.name} (Qty: ${i.quantity})`).join(', ')
                     : 'Tiffin Meal'
-                  
-                  const isVerified = pay.paymentStatus === 'verified'
-                  const isSubmitted = pay.paymentStatus === 'submitted'
-                  const isFailed = pay.paymentStatus === 'failed'
 
-                  let cardBg = 'bg-white'
-                  let cardBorder = 'border-emerald-100/50'
-                  if (isVerified) {
-                    cardBg = 'bg-gradient-to-br from-emerald-50/30 to-white'
-                    cardBorder = 'border-emerald-100/55'
-                  } else if (isSubmitted) {
-                    cardBg = 'bg-gradient-to-br from-blue-50/20 to-white'
-                    cardBorder = 'border-blue-100/40'
-                  } else if (isFailed) {
-                    cardBg = 'bg-gradient-to-br from-rose-50/20 to-white'
-                    cardBorder = 'border-rose-100/40'
-                  } else {
-                    cardBg = 'bg-gradient-to-br from-amber-50/20 to-white'
-                    cardBorder = 'border-amber-100/40'
-                  }
+                  const isVerified = pay.paymentStatus === 'verified'
+                  const isFailed   = pay.paymentStatus === 'failed'
+                  const isSubmitted = pay.paymentStatus === 'submitted'
+
+                  const accentColor = isVerified
+                    ? 'bg-emerald-500'
+                    : isFailed
+                    ? 'bg-rose-400'
+                    : isSubmitted
+                    ? 'bg-blue-400'
+                    : 'bg-amber-400'
+
+                  const cardBorder = isVerified
+                    ? 'border-emerald-100'
+                    : isFailed
+                    ? 'border-rose-100'
+                    : isSubmitted
+                    ? 'border-blue-100'
+                    : 'border-amber-100'
 
                   return (
                     <div
                       key={pay.id}
-                      className={`p-4.5 rounded-3xl ${cardBg} flex flex-col gap-3.5 shadow-subtle transition-all`}
+                      className={`relative flex rounded-2xl border ${cardBorder} bg-white shadow-sm overflow-hidden`}
                     >
-                      {/* Top Bar */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-100/60 uppercase tracking-wider">
-                          {pay.orderNumber}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="primary" className="text-[9px] px-2 py-0.5 font-bold capitalize">
-                            {pay.paymentMethod}
-                          </Badge>
-                          {getStatusBadge(pay.paymentStatus)}
-                        </div>
-                      </div>
+                      {/* Left accent strip */}
+                      <div className={`w-1 shrink-0 ${accentColor} rounded-l-2xl`} />
 
-                      {/* Items & Date */}
-                      <div className="text-xs font-semibold text-text-dark flex flex-col gap-2.5">
-                        <p className="line-clamp-2 text-gray-700 leading-relaxed font-semibold">
+                      <div className="flex-1 p-4 flex flex-col gap-3">
+                        {/* Row 1: Order No + Status badges */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-wider">
+                            {pay.orderNumber}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge variant="primary" className="text-[9px] font-bold capitalize">
+                              {formatPaymentMethod(pay.paymentMethod)}
+                            </Badge>
+                            {getStatusBadge(pay.paymentStatus)}
+                          </div>
+                        </div>
+
+                        {/* Row 2: Item name */}
+                        <p className="text-xs font-semibold text-gray-700 leading-relaxed line-clamp-2">
                           {itemsStr}
                         </p>
-                        <div className="flex items-center mt-1">
-                          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-primary px-2.5 py-1 rounded-xl border border-emerald-100/60 text-[10.5px] font-bold">
-                            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-                            {formatDateTime(pay.createdAt)}
-                          </span>
-                        </div>
-                      </div>
 
-                      {/* Bottom Bar */}
-                      <div className="flex items-center justify-between pt-3 mt-1">
-                        <div className="flex flex-col text-left">
-                          <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Amount Paid</span>
-                          <span className="text-base font-black text-primary">
-                            PKR {pay.billingTotal.toLocaleString()}
-                          </span>
+                        {/* Row 3: Date pill */}
+                        <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-500 px-2.5 py-1 rounded-xl border border-gray-100 text-[10.5px] font-bold w-fit">
+                          <Calendar className="w-3 h-3 shrink-0" />
+                          {formatDateTime(pay.createdAt)}
+                        </span>
+
+                        {/* Row 4: Amount + Invoice button */}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div>
+                            <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Amount Paid</p>
+                            <p className="text-base font-black text-primary">PKR {pay.billingTotal.toLocaleString()}</p>
+                          </div>
+                          <button
+                            onClick={() => handleDownloadInvoice(pay)}
+                            className="flex items-center gap-1.5 text-xs font-black text-white bg-primary px-3.5 py-2 rounded-xl hover:bg-primary/90 transition-all cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Invoice
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleDownloadInvoice(pay)}
-                          className="flex items-center gap-1.5 text-xs font-black text-white bg-primary px-3.5 py-2 rounded-xl hover:bg-primary/90 transition-all cursor-pointer shadow-subtle"
-                          aria-label="Download Invoice"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Invoice</span>
-                        </button>
                       </div>
                     </div>
                   )
@@ -602,83 +609,78 @@ export default function Payments() {
                 )}
               </div>
 
-              {/* MOBILE LIST VIEW */}
-              <div className="md:hidden flex flex-col gap-4.5">
+              {/* MOBILE LIST VIEW - Subscription */}
+              <div className="md:hidden flex flex-col gap-3">
                 {(user?.subscriptions || []).map((sub) => {
-                  const isVerified = sub.paymentStatus === 'verified'
+                  const isVerified  = sub.paymentStatus === 'verified'
+                  const isFailed    = sub.paymentStatus === 'failed'
                   const isSubmitted = sub.paymentStatus === 'submitted'
-                  const isFailed = sub.paymentStatus === 'failed'
 
-                  let cardBg = 'bg-white'
-                  let cardBorder = 'border-emerald-100/50'
-                  if (isVerified) {
-                    cardBg = 'bg-gradient-to-br from-emerald-50/30 to-white'
-                    cardBorder = 'border-emerald-100/55'
-                  } else if (isSubmitted) {
-                    cardBg = 'bg-gradient-to-br from-blue-50/20 to-white'
-                    cardBorder = 'border-blue-100/40'
-                  } else if (isFailed) {
-                    cardBg = 'bg-gradient-to-br from-rose-50/20 to-white'
-                    cardBorder = 'border-rose-100/40'
-                  } else {
-                    cardBg = 'bg-gradient-to-br from-amber-50/20 to-white'
-                    cardBorder = 'border-amber-100/40'
-                  }
+                  const accentColor = isVerified
+                    ? 'bg-emerald-500'
+                    : isFailed
+                    ? 'bg-rose-400'
+                    : isSubmitted
+                    ? 'bg-blue-400'
+                    : 'bg-amber-400'
+
+                  const cardBorder = isVerified
+                    ? 'border-emerald-100'
+                    : isFailed
+                    ? 'border-rose-100'
+                    : isSubmitted
+                    ? 'border-blue-100'
+                    : 'border-amber-100'
 
                   return (
                     <div
                       key={sub.id}
-                      className={`p-4.5 rounded-3xl ${cardBg} flex flex-col gap-3.5 shadow-subtle transition-all`}
+                      className={`relative flex rounded-2xl border ${cardBorder} bg-white shadow-sm overflow-hidden`}
                     >
-                      {/* Top Bar */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-100/60 uppercase tracking-wider capitalize">
-                          {sub.planType} Subscription Plan
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {getStatusBadge(sub.paymentStatus)}
-                        </div>
-                      </div>
+                      {/* Left accent strip */}
+                      <div className={`w-1 shrink-0 ${accentColor} rounded-l-2xl`} />
 
-                      {/* Details */}
-                      <div className="text-xs font-semibold text-text-dark flex flex-col gap-2.5">
-                        {/* Meals Progress */}
-                        <div className="flex items-center justify-between bg-emerald-50/20 border border-emerald-100/30 rounded-xl p-2.5">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                            <span className="text-gray-500 font-semibold">Meals Remaining:</span>
-                          </div>
-                          <span className="font-black text-primary text-sm">{sub.mealsRemaining} Left</span>
-                        </div>
-
-                        {/* Expiry and Dates */}
-                        <div className="flex flex-col gap-1.5 pl-1">
-                          <div className="flex items-center mt-1">
-                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-primary px-2.5 py-1 rounded-xl border border-emerald-100/60 text-[10.5px] font-bold">
-                              <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-                              Expiry Date: {formatDate(sub.endDate)}
-                            </span>
-                          </div>
-                          
-                          {sub.isCompany && (
-                            <p className="text-[10px] text-amber-600 font-black uppercase tracking-wide">
-                              Company Tender ({sub.workerCount} workers)
-                            </p>
-                          )}
-                          
-                          <div className="text-[9.5px] text-gray-400 font-bold pl-1 mt-1">
-                            Purchased on: {formatDateTime(sub.createdAt)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Bottom Bar */}
-                      <div className="flex items-center justify-between pt-3 mt-1">
-                        <div className="flex flex-col text-left">
-                          <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Plan Cost</span>
-                          <span className="text-base font-black text-primary">
-                            PKR {sub.price?.toLocaleString()}
+                      <div className="flex-1 p-4 flex flex-col gap-3">
+                        {/* Row 1: Plan label + Payment status */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-black text-primary bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-wider capitalize">
+                            {sub.planType} Plan
                           </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {getStatusBadge(sub.paymentStatus)}
+                            {getSubscriptionStatusBadge(sub.status)}
+                          </div>
+                        </div>
+
+                        {/* Row 2: Meals remaining chip */}
+                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="text-xs font-semibold text-gray-600">Meals Remaining:</span>
+                          <span className="ml-auto font-black text-primary text-sm">{sub.mealsRemaining}</span>
+                        </div>
+
+                        {/* Row 3: Dates */}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-500 px-2.5 py-1 rounded-xl border border-gray-100 text-[10.5px] font-bold w-fit">
+                            <Calendar className="w-3 h-3 shrink-0" />
+                            Expiry: {formatDate(sub.endDate)}
+                          </span>
+                          {sub.isCompany && (
+                            <span className="text-[10px] text-amber-600 font-black uppercase tracking-wide">
+                              Company Tender · {sub.workerCount} workers
+                            </span>
+                          )}
+                          <span className="text-[9.5px] text-gray-400 font-bold">
+                            Purchased: {formatDateTime(sub.createdAt)}
+                          </span>
+                        </div>
+
+                        {/* Row 4: Plan cost */}
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div>
+                            <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Plan Cost</p>
+                            <p className="text-base font-black text-primary">PKR {sub.price?.toLocaleString()}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -688,6 +690,126 @@ export default function Payments() {
                   <p className="text-gray-400 py-12 text-center text-sm font-medium">No subscription payments found.</p>
                 )}
               </div>
+
+              {/* ── Subscription Usage Breakdown ── */}
+              {(user?.subscriptions || []).map((sub) => {
+                // Filter subscription delivery orders first
+                const subDeliveries = orders.filter(o => {
+                  const m = (o.paymentMethod || '').toLowerCase()
+                  return m.includes('subscription')
+                })
+
+                // mealsUsed now comes from backend (computed in userController)
+                // fallback to subDeliveries.length if not available
+                const usedMeals   = sub.mealsUsed ?? subDeliveries.length
+                const totalMeals  = sub.totalMealsInPlan ?? (sub.mealsRemaining + usedMeals)
+                const perMealCost = sub.price > 0 && totalMeals > 0
+                  ? Math.round(sub.price / totalMeals)
+                  : 0
+                const usedAmount  = usedMeals * perMealCost
+                const usedPercent = totalMeals > 0 ? Math.round((usedMeals / totalMeals) * 100) : 0
+
+                return (
+                  <div key={`ledger-${sub.id}`} className="mt-4 flex flex-col gap-4">
+
+                    {/* Usage Summary Banner */}
+                    <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-50/60 to-white border border-emerald-100 rounded-2xl flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Subscription Usage</p>
+                          <p className="text-xs font-bold text-text-dark capitalize">{sub.planType} Plan · {usedMeals} of {totalMeals} meals used</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider mb-0.5">Per Meal</p>
+                          <p className="text-sm font-black text-primary">PKR {perMealCost.toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-[10px] font-bold text-emerald-700">PKR {usedAmount.toLocaleString()} used</span>
+                          <span className="text-[10px] font-bold text-gray-400">of PKR {sub.price?.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-primary to-emerald-400 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${usedPercent}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-semibold mt-1.5">
+                          PKR {(sub.price - usedAmount).toLocaleString()} remaining in your plan
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Delivery Ledger */}
+                    {subDeliveries.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider px-1 mb-1">Delivery Breakdown</p>
+
+                        {/* Desktop ledger table */}
+                        <div className="hidden md:block border border-emerald-100/60 rounded-2xl overflow-hidden">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-emerald-50/40 border-b border-emerald-100/50">
+                              <tr>
+                                <th className="px-4 py-2.5 font-extrabold text-gray-400 uppercase tracking-wider">Order</th>
+                                <th className="px-4 py-2.5 font-extrabold text-gray-400 uppercase tracking-wider">Meal</th>
+                                <th className="px-4 py-2.5 font-extrabold text-gray-400 uppercase tracking-wider">Date</th>
+                                <th className="px-4 py-2.5 font-extrabold text-gray-400 uppercase tracking-wider text-right">Meal Cost</th>
+                                <th className="px-4 py-2.5 font-extrabold text-gray-400 uppercase tracking-wider text-right">Cumulative Used</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {subDeliveries.map((o, idx) => {
+                                const mealName = Array.isArray(o.items) && o.items.length > 0
+                                  ? o.items.map(i => i.name).join(', ')
+                                  : 'Subscription Meal'
+                                const cumulative = (idx + 1) * perMealCost
+                                return (
+                                  <tr key={o.id} className="border-b border-emerald-50/50 last:border-0">
+                                    <td className="px-4 py-3 font-bold text-primary">{o.orderNumber}</td>
+                                    <td className="px-4 py-3 text-gray-700 font-semibold">{mealName}</td>
+                                    <td className="px-4 py-3 text-gray-500">{formatDateTime(o.createdAt)}</td>
+                                    <td className="px-4 py-3 text-right font-black text-emerald-700">PKR {perMealCost.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right font-black text-primary">PKR {cumulative.toLocaleString()}</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile ledger cards */}
+                        <div className="md:hidden flex flex-col gap-2">
+                          {subDeliveries.map((o, idx) => {
+                            const mealName = Array.isArray(o.items) && o.items.length > 0
+                              ? o.items.map(i => i.name).join(', ')
+                              : 'Subscription Meal'
+                            const cumulative = (idx + 1) * perMealCost
+                            return (
+                              <div key={o.id} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                {/* Meal number circle */}
+                                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                                  <span className="text-[11px] font-black text-primary">{idx + 1}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-text-dark truncate">{mealName}</p>
+                                  <p className="text-[10px] text-gray-400 font-semibold">{formatDate(o.createdAt)}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-xs font-black text-emerald-700">PKR {perMealCost.toLocaleString()}</p>
+                                  <p className="text-[10px] text-gray-400 font-bold">Total: PKR {cumulative.toLocaleString()}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </>
           )}
         </Card>
