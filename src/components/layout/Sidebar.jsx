@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -76,6 +76,11 @@ export default function Sidebar({ children }) {
   }
 
   const menuItems = getMenuItems()
+
+  // Close mobile drawer whenever route changes
+  useEffect(() => {
+    setDrawerOpen(false)
+  }, [location.pathname])
 
   // Bottom nav: 4 main tabs for regular user
   const bottomNavItems = (!user?.role || user?.role === 'user')
@@ -294,6 +299,7 @@ export default function Sidebar({ children }) {
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => setDrawerOpen(false)}
                 className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 transition-all ${
                   active ? 'text-primary' : 'text-gray-400'
                 }`}

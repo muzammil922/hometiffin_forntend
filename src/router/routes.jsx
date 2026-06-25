@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from '../components/shared/ProtectedRoute'
+import GuestRoute from '../components/shared/GuestRoute'
 import PageLoader from '../components/shared/PageLoader'
 import { useAuthStore } from '../store/authStore'
 
@@ -90,12 +91,12 @@ export default function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<GuestRoute><Home /></GuestRoute>} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/reviews" element={<Reviews />} />
         <Route path="/cart" element={<Cart />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
         <Route path="/quick-order" element={<QuickOrder />} />
 
         <Route
