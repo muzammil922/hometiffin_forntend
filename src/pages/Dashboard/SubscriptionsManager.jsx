@@ -7,10 +7,34 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { useToastStore } from '../../store/toastStore'
 import { formatDate, formatDateTime } from '../../services/dateFormatter'
-import { Calendar, Users, Sliders, Edit, CheckCircle, Pause, AlertCircle, RefreshCw, XCircle, DollarSign, Eye, Loader2, Play, X, MoreVertical, Mail, Phone, User, Info, Truck, Search, Download } from 'lucide-react'
+import { Calendar, Users, Sliders, Edit, CheckCircle, Pause, AlertCircle, RefreshCw, XCircle, DollarSign, Eye, Loader2, Play, X, MoreVertical, Mail, Phone, User, Info, Truck, Search, Download, Clock } from 'lucide-react'
 import Pagination from '../../components/ui/Pagination'
 import { loadPdfLibs } from '../../utils/pdfExport'
 
+const parseAllocatedTimes = (str, slots) => {
+  const times = {}
+  if (!str) return times
+  
+  const hasPrefixes = str.includes('B:') || str.includes('L:') || str.includes('D:')
+  if (hasPrefixes) {
+    const parts = str.split('|')
+    parts.forEach(part => {
+      const trimmed = part.trim()
+      if (trimmed.startsWith('B:')) {
+        times.breakfast = trimmed.replace('B:', '').trim()
+      } else if (trimmed.startsWith('L:')) {
+        times.lunch = trimmed.replace('L:', '').trim()
+      } else if (trimmed.startsWith('D:')) {
+        times.dinner = trimmed.replace('D:', '').trim()
+      }
+    })
+  } else if (slots) {
+    if (slots.breakfast) times.breakfast = str
+    if (slots.lunch) times.lunch = str
+    if (slots.dinner) times.dinner = str
+  }
+  return times
+}
 
 export default function SubscriptionsManager() {
   const { addToast } = useToastStore()
@@ -53,6 +77,20 @@ export default function SubscriptionsManager() {
   const [editMeals, setEditMeals] = useState(0)
   const [editDeliveryTime, setEditDeliveryTime] = useState('lunch')
   const [editMealCategory, setEditMealCategory] = useState('balanced')
+  const [editAllocatedDeliveryTime, setEditAllocatedDeliveryTime] = useState('')
+  const [editHasBreakfast, setEditHasBreakfast] = useState(false)
+  const [editHasLunch, setEditHasLunch] = useState(true)
+  const [editHasDinner, setEditHasDinner] = useState(false)
+  const [editAllocatedBreakfast, setEditAllocatedBreakfast] = useState('')
+  const [editAllocatedLunch, setEditAllocatedLunch] = useState('')
+  const [editAllocatedDinner, setEditAllocatedDinner] = useState('')
+  const [sendingSmsId, setSendingSmsId] = useState(null)
+  
+  // Bulk selection states
+  const [selectedSubIds, setSelectedSubIds] = useState([])
+  const [bulkDeliveryTime, setBulkDeliveryTime] = useState('')
+  const [isBulkSending, setIsBulkSending] = useState(false)
+
   const [updating, setUpdating] = useState(false)
 
   // Plan editor states
@@ -113,7 +151,23 @@ export default function SubscriptionsManager() {
     try {
       setPlansLoading(true)
       const res = await api.get('/admin/plans')
-      setPlans(res.data)
+      let fetchedPlans = [...res.data]
+      
+      // Ensure company plan exists for corporate plan configuration
+      if (fetchedPlans.length > 0 && !fetchedPlans.some(p => p.planType === 'company')) {
+        fetchedPlans.push({
+          id: 'company',
+          planType: 'company',
+          price: 300,
+          totalMeals: 24,
+          validityDays: 30,
+          breakfastPrice: 200,
+          lunchPrice: 300,
+          dinnerPrice: 300,
+          isMock: true
+        })
+      }
+      setPlans(fetchedPlans)
     } catch (err) {
       console.error('Failed to load plans:', err)
       addToast('Failed to load subscription plans configuration.', 'error')
@@ -214,12 +268,27 @@ export default function SubscriptionsManager() {
   const handleSavePlanConfig = async (plan) => {
     try {
       setSavingPlans(prev => ({ ...prev, [plan.id]: true }))
-      await api.put(`/admin/plans/${plan.id}`, {
+      const payload = {
+        planType: plan.planType,
         price: Number(plan.price),
         discount: Number(plan.discount || 0),
         totalMeals: Number(plan.totalMeals),
-        validityDays: Number(plan.validityDays)
-      })
+        validityDays: Number(plan.validityDays),
+        breakfastPrice: Number(plan.breakfastPrice || 0),
+        lunchPrice: Number(plan.lunchPrice || 0),
+        dinnerPrice: Number(plan.dinnerPrice || 0)
+      }
+      
+      if (plan.isMock || plan.id === 'company') {
+        try {
+          await api.post('/admin/plans', payload)
+        } catch (postErr) {
+          await api.put(`/admin/plans/${plan.id}`, payload)
+        }
+      } else {
+        await api.put(`/admin/plans/${plan.id}`, payload)
+      }
+      
       addToast(`${plan.planType.toUpperCase()} plan pricing updated!`, 'success')
       fetchPlans()
     } catch (err) {
@@ -254,7 +323,6 @@ export default function SubscriptionsManager() {
       
       // Update local state instead of refreshing the whole table
       setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, status: newStatus } : s))
-      setFilteredSubs(prev => prev.map(s => s.id === sub.id ? { ...s, status: newStatus } : s))
       
       if (newStatus !== 'paused') {
         setLoading(false)
@@ -273,17 +341,65 @@ export default function SubscriptionsManager() {
     setEditMeals(sub.mealsRemaining)
     setEditDeliveryTime(sub.preferenceDeliveryTime || 'lunch')
     setEditMealCategory(sub.preferenceMealCategory || 'balanced')
+    setEditAllocatedDeliveryTime(sub.allocatedDeliveryTime || '')
+    
+    const mealSlots = sub.preferences?.mealSlots
+    setEditHasBreakfast(mealSlots ? !!mealSlots.breakfast : false)
+    setEditHasLunch(mealSlots ? !!mealSlots.lunch : (sub.preferenceDeliveryTime !== 'dinner'))
+    setEditHasDinner(mealSlots ? !!mealSlots.dinner : (sub.preferenceDeliveryTime === 'dinner'))
+    
+    const parsedAllocated = parseAllocatedTimes(sub.allocatedDeliveryTime, mealSlots)
+    const allocated = {
+      ...parsedAllocated,
+      ...(sub.preferences?.allocatedTimes || sub.allocatedTimes || {})
+    }
+    const customTimes = sub.preferences?.customTimes || {}
+    setEditAllocatedBreakfast(allocated.breakfast || customTimes.breakfast || '')
+    setEditAllocatedLunch(allocated.lunch || customTimes.lunch || '')
+    setEditAllocatedDinner(allocated.dinner || customTimes.dinner || '')
+    
     setIsModalOpen(true)
   }
 
   const handleUpdateSubscription = async () => {
     try {
       setUpdating(true)
+      
+      const times = []
+      if (editHasBreakfast && editAllocatedBreakfast) times.push(`B: ${editAllocatedBreakfast}`)
+      if (editHasLunch && editAllocatedLunch) times.push(`L: ${editAllocatedLunch}`)
+      if (editHasDinner && editAllocatedDinner) times.push(`D: ${editAllocatedDinner}`)
+      const allocatedStr = times.join(' | ')
+
       const res = await api.put(`/admin/subscriptions/${selectedSub.id}`, {
         status: editStatus,
         mealsRemaining: editMeals,
-        preferenceDeliveryTime: editDeliveryTime,
-        preferenceMealCategory: editMealCategory
+        preferenceMealCategory: editMealCategory,
+        allocatedDeliveryTime: allocatedStr,
+        allocatedTimes: {
+          breakfast: editHasBreakfast ? editAllocatedBreakfast : undefined,
+          lunch: editHasLunch ? editAllocatedLunch : undefined,
+          dinner: editHasDinner ? editAllocatedDinner : undefined
+        },
+        preferences: {
+          mealCategory: editMealCategory,
+          mealSlots: {
+            breakfast: editHasBreakfast,
+            lunch: editHasLunch,
+            dinner: editHasDinner
+          },
+          deliveryTime: editHasLunch ? 'lunch' : (editHasDinner ? 'dinner' : 'breakfast'),
+          customTimes: {
+            breakfast: editHasBreakfast ? editAllocatedBreakfast : undefined,
+            lunch: editHasLunch ? editAllocatedLunch : undefined,
+            dinner: editHasDinner ? editAllocatedDinner : undefined
+          },
+          allocatedTimes: {
+            breakfast: editHasBreakfast ? editAllocatedBreakfast : undefined,
+            lunch: editHasLunch ? editAllocatedLunch : undefined,
+            dinner: editHasDinner ? editAllocatedDinner : undefined
+          }
+        }
       })
       addToast('Subscription updated successfully!', 'success')
       setIsModalOpen(false)
@@ -294,6 +410,210 @@ export default function SubscriptionsManager() {
       addToast(err.response?.data?.error || 'Failed to update subscription.', 'error')
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const getMealNameForSub = (sub) => {
+    const plan = plans.find(p => p.planType === sub.planType)
+    if (!plan) return "Chef's Choice"
+    const totalMeals = plan.totalMeals || (plan.planType === 'weekly' ? 7 : 30)
+    const dayIndex = Math.max(0, totalMeals - sub.mealsRemaining) + 1
+    const schedule = plan.mealSchedules?.find(s => s.dayIndex === dayIndex)
+    return schedule ? schedule.mealName : "Chef's Choice"
+  }
+
+  const getNotificationTimeText = (s) => {
+    const timesList = []
+    const slots = s.preferences?.mealSlots
+    const parsedAllocated = parseAllocatedTimes(s.allocatedDeliveryTime, slots)
+    const allocated = {
+      ...parsedAllocated,
+      ...(s.allocatedTimes || {})
+    }
+    const custom = s.preferences?.customTimes || {}
+    
+    if (slots) {
+      const hasAnyTime = allocated.breakfast || custom.breakfast || allocated.lunch || custom.lunch || allocated.dinner || custom.dinner
+      if (!hasAnyTime && s.allocatedDeliveryTime) {
+        timesList.push(`at ${s.allocatedDeliveryTime}`)
+      } else {
+        if (slots.breakfast) timesList.push(`Breakfast at ${allocated.breakfast || custom.breakfast || 'morning'}`)
+        if (slots.lunch) timesList.push(`Lunch at ${allocated.lunch || custom.lunch || 'noon'}`)
+        if (slots.dinner) timesList.push(`Dinner at ${allocated.dinner || custom.dinner || 'night'}`)
+      }
+    } else {
+      if (s.allocatedDeliveryTime) {
+        timesList.push(`at ${s.allocatedDeliveryTime}`)
+      } else {
+        timesList.push(`in your preferred slot (${s.preferenceDeliveryTime})`)
+      }
+    }
+    return timesList.join(', ')
+  }
+
+  const handleSendWhatsAppNotification = async (sub) => {
+    const phoneNum = sub.customer?.phone || sub.contactPhone
+    if (!phoneNum) {
+      addToast('No contact phone number found for this subscriber.', 'error')
+      return
+    }
+
+    const mealName = getMealNameForSub(sub)
+    const customerName = sub.customer?.name || 'Customer'
+    const timeText = getNotificationTimeText(sub)
+    
+    const message = `Salam ${customerName}! Today your Active Subscription Meal is: *${mealName}*. It will be delivered to you ${timeText}. Stay tuned!`
+
+    try {
+      setSendingSmsId(sub.id)
+      
+      await api.post('/admin/whatsapp/send-message', {
+        phone: phoneNum,
+        message: message
+      })
+      
+      addToast('WhatsApp notification sent successfully!', 'success')
+    } catch (err) {
+      console.error('Failed to send WhatsApp message via backend, trying direct middleware...', err)
+      try {
+        const { whatsappService } = await import('../../services/whatsapp')
+        await whatsappService.sendMessage(phoneNum, message)
+        addToast('WhatsApp notification sent successfully!', 'success')
+      } catch (fallbackErr) {
+        console.error('Fallback failed:', fallbackErr)
+        addToast('Failed to send WhatsApp notification. Make sure WhatsApp is connected.', 'error')
+      }
+    } finally {
+      setSendingSmsId(null)
+    }
+  }
+
+  const handleToggleSelectSub = (id) => {
+    setSelectedSubIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAllSubs = (checked) => {
+    if (checked) {
+      setSelectedSubIds(subscriptions.map(s => s.id))
+    } else {
+      setSelectedSubIds([])
+    }
+  }
+
+  const handleBulkAllotTime = async () => {
+    if (selectedSubIds.length === 0) {
+      addToast('No subscribers selected.', 'warning')
+      return
+    }
+    if (!bulkDeliveryTime.trim()) {
+      addToast('Please enter a delivery time to allot.', 'warning')
+      return
+    }
+
+    try {
+      setLoading(true)
+      await Promise.all(
+        selectedSubIds.map(id => {
+          const sub = subscriptions.find(s => s.id === id)
+          if (!sub) return Promise.resolve()
+          
+          const mealSlots = sub.preferences?.mealSlots
+          const updatePayload = {
+            allocatedDeliveryTime: bulkDeliveryTime.trim()
+          }
+          
+          if (mealSlots) {
+            const allocatedTimes = { ...(sub.allocatedTimes || {}) }
+            const activeKeys = Object.keys(mealSlots).filter(k => mealSlots[k])
+            
+            activeKeys.forEach(k => {
+              allocatedTimes[k] = bulkDeliveryTime.trim()
+            })
+            
+            updatePayload.allocatedTimes = allocatedTimes
+            
+            const times = []
+            if (mealSlots.breakfast && allocatedTimes.breakfast) times.push(`B: ${allocatedTimes.breakfast}`)
+            if (mealSlots.lunch && allocatedTimes.lunch) times.push(`L: ${allocatedTimes.lunch}`)
+            if (mealSlots.dinner && allocatedTimes.dinner) times.push(`D: ${allocatedTimes.dinner}`)
+            updatePayload.allocatedDeliveryTime = times.join(' | ') || bulkDeliveryTime.trim()
+            
+            updatePayload.preferences = {
+              ...sub.preferences,
+              customTimes: {
+                ...sub.preferences?.customTimes,
+                ...allocatedTimes
+              }
+            }
+          }
+          
+          return api.put(`/admin/subscriptions/${id}`, updatePayload)
+        })
+      )
+      addToast(`Allocated delivery time "${bulkDeliveryTime}" to ${selectedSubIds.length} subscribers!`, 'success')
+      setSelectedSubIds([])
+      setBulkDeliveryTime('')
+      fetchSubscriptions(page, searchQuery, statusFilter)
+    } catch (err) {
+      console.error(err)
+      addToast('Failed to allot delivery time to some subscribers.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkSendWhatsApp = async () => {
+    if (selectedSubIds.length === 0) {
+      addToast('No subscribers selected.', 'warning')
+      return
+    }
+
+    const selectedSubs = subscriptions.filter(s => selectedSubIds.includes(s.id) && s.status === 'active')
+    if (selectedSubs.length === 0) {
+      addToast('No active subscribers selected to notify.', 'warning')
+      return
+    }
+
+    try {
+      setIsBulkSending(true)
+      let successCount = 0
+      
+      for (const sub of selectedSubs) {
+        try {
+          const phoneNum = sub.customer?.phone || sub.contactPhone
+          if (!phoneNum) continue
+          
+          const mealName = getMealNameForSub(sub)
+          const customerName = sub.customer?.name || 'Customer'
+          const timeText = getNotificationTimeText(sub)
+          
+          const message = `Salam ${customerName}! Today your Active Subscription Meal is: *${mealName}*. It will be delivered to you ${timeText}. Stay tuned!`
+          
+          try {
+            await api.post('/admin/whatsapp/send-message', {
+              phone: phoneNum,
+              message: message
+            })
+          } catch (apiErr) {
+            const { whatsappService } = await import('../../services/whatsapp')
+            await whatsappService.sendMessage(phoneNum, message)
+          }
+          
+          successCount++
+        } catch (subErr) {
+          console.error(`Failed to send SMS to subscriber ${sub.id}:`, subErr)
+        }
+      }
+      
+      addToast(`Sent WhatsApp notifications to ${successCount} active subscribers!`, 'success')
+      setSelectedSubIds([])
+    } catch (err) {
+      console.error(err)
+      addToast('Failed to send bulk notifications.', 'error')
+    } finally {
+      setIsBulkSending(false)
     }
   }
 
@@ -528,7 +848,15 @@ export default function SubscriptionsManager() {
           {/* Main List */}
           <Card className="p-8 hover:translate-y-0" hoverable={false}>
             <div className="flex items-center justify-between border-b border-emerald-50 pb-3 mb-6">
-              <h3 className="font-bold text-text-dark text-base">Subscriber Directories</h3>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={subscriptions.length > 0 && selectedSubIds.length === subscriptions.length}
+                  onChange={(e) => handleSelectAllSubs(e.target.checked)}
+                  className="rounded border-emerald-205 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                />
+                <h3 className="font-bold text-text-dark text-base">Subscriber Directories</h3>
+              </div>
               <button onClick={() => fetchSubscriptions(page, searchQuery, statusFilter)} className="p-1.5 rounded-xl hover:bg-emerald-50 text-primary transition-all cursor-pointer">
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -553,10 +881,6 @@ export default function SubscriptionsManager() {
             ) : (
               <div className="flex flex-col gap-4">
                 {filteredSubs.map((sub) => {
-                  const matchingPlan = plans.find(p => p.planType === sub.planType)
-                  const totalMeals = matchingPlan ? matchingPlan.totalMeals : (sub.planType === 'weekly' ? 6 : 24)
-                  const mealsSent = Math.max(0, totalMeals - sub.mealsRemaining)
-
                   return (
                     <Card
                       key={sub.id}
@@ -565,35 +889,106 @@ export default function SubscriptionsManager() {
                       }`}
                       hoverable={false}
                     >
-                      <div className="flex flex-col gap-1.5 text-left min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-text-dark">
-                            {sub.customer?.name || 'Unknown User'}
-                          </span>
-                          <Badge variant={sub.planType === 'weekly' ? 'primary' : 'accent'}>
-                            {sub.planType.toUpperCase()}
-                          </Badge>
-                          {getStatusBadge(sub.status)}
-                          {sub.status === 'pending' && sub.paymentScreenshotUrl && (
-                            <button
-                              onClick={() => setViewScreenshotUrl(sub.paymentScreenshotUrl)}
-                              className="text-xs font-black text-primary hover:text-emerald-700 flex items-center gap-1 cursor-pointer bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100"
-                            >
-                              <Eye className="w-3 h-3" />
-                              View Receipt Proof
-                            </button>
-                          )}
+                      <div className="flex items-start sm:items-center gap-3.5 min-w-0 w-full sm:w-auto flex-1 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedSubIds.includes(sub.id)}
+                          onChange={() => handleToggleSelectSub(sub.id)}
+                          className="rounded border-emerald-200 text-primary focus:ring-primary w-4 h-4 cursor-pointer shrink-0 mt-1 sm:mt-0"
+                        />
+                        <div className="flex flex-col gap-1.5 text-left min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap text-left">
+                            <span className="text-sm font-bold text-text-dark">
+                              {sub.customer?.name || 'Unknown User'}
+                            </span>
+                            <Badge variant={sub.planType === 'weekly' ? 'primary' : 'accent'}>
+                              {sub.planType.toUpperCase()}
+                            </Badge>
+                            {getStatusBadge(sub.status)}
+                            {sub.status === 'pending' && sub.paymentScreenshotUrl && (
+                              <button
+                                onClick={() => setViewScreenshotUrl(sub.paymentScreenshotUrl)}
+                                className="text-xs font-black text-primary hover:text-emerald-700 flex items-center gap-1 cursor-pointer bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100"
+                              >
+                                <Eye className="w-3 h-3" />
+                                View Receipt Proof
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 font-semibold truncate text-left">
+                            Email: {sub.customer?.email} | Contact: {sub.customer?.phone || 'No phone'}
+                          </p>
+                          <div className="text-[10px] text-gray-455 font-bold flex flex-wrap gap-1.5 items-center mt-1 text-left">
+                            <span>Slots:</span>
+                            {(() => {
+                              const elements = []
+                              const slots = sub.preferences?.mealSlots
+                              const parsedAllocated = parseAllocatedTimes(sub.allocatedDeliveryTime, slots)
+                              const allocated = {
+                                ...parsedAllocated,
+                                ...(sub.preferences?.allocatedTimes || sub.allocatedTimes || {})
+                              }
+                              const custom = sub.preferences?.customTimes || {}
+                              
+                              if (slots) {
+                                if (slots.breakfast) {
+                                  elements.push(
+                                    <span key="b" className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-100 flex items-center gap-0.5">
+                                      B: {allocated.breakfast || custom.breakfast || 'Not Set'}
+                                    </span>
+                                  )
+                                }
+                                if (slots.lunch) {
+                                  elements.push(
+                                    <span key="l" className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-150 flex items-center gap-0.5">
+                                      L: {allocated.lunch || custom.lunch || 'Not Set'}
+                                    </span>
+                                  )
+                                }
+                                if (slots.dinner) {
+                                  elements.push(
+                                    <span key="d" className="bg-indigo-50 text-indigo-850 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-0.5">
+                                      D: {allocated.dinner || custom.dinner || 'Not Set'}
+                                    </span>
+                                  )
+                                }
+                              } else {
+                                // Fallback
+                                if (sub.allocatedDeliveryTime) {
+                                  elements.push(
+                                    <span key="legacy" className="bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 flex items-center gap-0.5">
+                                      <Clock className="w-3 h-3" /> {sub.allocatedDeliveryTime}
+                                    </span>
+                                  )
+                                }
+                              }
+                              return elements
+                            })()}
+                          </div>
+                          <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1 mt-1 text-left">
+                            <Calendar className="w-3.5 h-3.5 text-primary" />
+                            <span>Duration: {formatDate(sub.startDate)} &rarr; {formatDate(sub.endDate)}</span>
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 font-semibold truncate text-left">
-                          Email: {sub.customer?.email} | Contact: {sub.customer?.phone || 'No phone'}
-                        </p>
-                        <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3.5 h-3.5 text-primary" />
-                          <span>Duration: {formatDate(sub.startDate)} &rarr; {formatDate(sub.endDate)}</span>
-                        </p>
                       </div>
 
                       <div className="flex items-center justify-end gap-2.5 shrink-0 relative">
+                        {/* Send Menu WhatsApp SMS Button */}
+                        {sub.status === 'active' && (
+                          <button
+                            onClick={() => handleSendWhatsAppNotification(sub)}
+                            disabled={sendingSmsId === sub.id}
+                            className="p-2.5 rounded-xl hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 transition-all border border-emerald-100 cursor-pointer flex items-center justify-center bg-white shadow-sm disabled:opacity-50"
+                            title="Send Menu WhatsApp SMS"
+                          >
+                            {sendingSmsId === sub.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                            ) : (
+                              <Mail className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+
                         {/* View Details Eye Icon Button */}
                         <button
                           onClick={() => handleEditClick(sub)}
@@ -700,6 +1095,57 @@ export default function SubscriptionsManager() {
               </div>
             )}
           </Card>
+
+          {/* Sticky Bulk Action Bar */}
+          {selectedSubIds.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] w-full max-w-4xl px-4 animate-in fade-in slide-in-from-bottom-5 duration-200">
+              <div className="bg-[#0d3320] border border-emerald-800 rounded-3xl p-4 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-white">
+                  <span className="bg-emerald-500 text-white font-extrabold text-xs px-2.5 py-1 rounded-full">
+                    {selectedSubIds.length}
+                  </span>
+                  <span className="text-xs font-bold">subscribers selected</span>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                  <div className="flex items-center gap-2 bg-emerald-950/60 rounded-2xl px-3 py-1.5 border border-emerald-800/80 w-full sm:w-auto">
+                    <input
+                      type="text"
+                      placeholder="e.g. 1:45 PM"
+                      value={bulkDeliveryTime}
+                      onChange={(e) => setBulkDeliveryTime(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-white placeholder-emerald-700/80 focus:outline-none w-24 sm:w-28"
+                    />
+                    <button
+                      onClick={handleBulkAllotTime}
+                      disabled={loading}
+                      className="bg-primary hover:bg-emerald-600 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Allot Time
+                    </button>
+                  </div>
+                  
+                  <button
+                    onClick={handleBulkSendWhatsApp}
+                    disabled={isBulkSending}
+                    className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 text-white text-xs font-black uppercase px-5 py-3 rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isBulkSending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Sending SMS...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4" />
+                        <span>Send Menu SMS</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -716,7 +1162,7 @@ export default function SubscriptionsManager() {
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {plans.map((plan) => {
                 const isWeekly = plan.planType === 'weekly'
                 const isSaving = savingPlans[plan.id]
@@ -724,24 +1170,36 @@ export default function SubscriptionsManager() {
                   <Card key={plan.id} className="p-6 border border-emerald-100 bg-white rounded-3xl" hoverable={false}>
                     <div className="flex items-center gap-3.5 mb-5 pb-3 border-b border-gray-100">
                       <span className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${
-                        isWeekly ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        isWeekly 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : plan.planType === 'monthly'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {isWeekly ? 'W' : 'M'}
+                        {isWeekly ? 'W' : plan.planType === 'monthly' ? 'M' : 'C'}
                       </span>
                       <div>
-                        <h4 className="font-extrabold text-text-dark text-base capitalize">{plan.planType} Plan</h4>
-                        <p className="text-xs text-gray-450 font-semibold">Define pricing structure and parameters</p>
+                        <h4 className="font-extrabold text-text-dark text-base capitalize">
+                          {plan.planType === 'company' ? 'Company Plan' : `${plan.planType} Plan`}
+                        </h4>
+                        <p className="text-xs text-gray-450 font-semibold text-left">
+                          {plan.planType === 'company' 
+                            ? 'Define single meal pricing for corporate subscriptions' 
+                            : 'Define flat pricing structure and parameters'}
+                        </p>
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-4">
                       <div>
-                        <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1.5 block">Price (PKR)</label>
+                        <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-1.5 block">
+                          {plan.planType === 'company' ? 'Price Per Single Meal (PKR)' : 'Price (PKR)'}
+                        </label>
                         <Input
                           type="number"
                           value={plan.price}
                           onChange={(e) => handlePlanChange(plan.id, 'price', e.target.value)}
-                          placeholder="e.g. 1800"
+                          placeholder={plan.planType === 'company' ? 'e.g. 300' : 'e.g. 1800'}
                           className="w-full font-semibold"
                         />
                       </div>
@@ -779,6 +1237,45 @@ export default function SubscriptionsManager() {
                         />
                       </div>
 
+                      <div className="grid grid-cols-3 gap-2.5 mt-2 border-t border-emerald-50/50 pt-4">
+                        <div>
+                          <label className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">
+                            {plan.planType === 'company' ? 'B Meal Price' : 'Breakfast Price'}
+                          </label>
+                          <Input
+                            type="number"
+                            value={plan.breakfastPrice || ''}
+                            onChange={(e) => handlePlanChange(plan.id, 'breakfastPrice', e.target.value)}
+                            placeholder="B Price"
+                            className="w-full font-semibold text-xs py-1.5 px-2.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">
+                            {plan.planType === 'company' ? 'L Meal Price' : 'Lunch Price'}
+                          </label>
+                          <Input
+                            type="number"
+                            value={plan.lunchPrice || ''}
+                            onChange={(e) => handlePlanChange(plan.id, 'lunchPrice', e.target.value)}
+                            placeholder="L Price"
+                            className="w-full font-semibold text-xs py-1.5 px-2.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider mb-1 block">
+                            {plan.planType === 'company' ? 'D Meal Price' : 'Dinner Price'}
+                          </label>
+                          <Input
+                            type="number"
+                            value={plan.dinnerPrice || ''}
+                            onChange={(e) => handlePlanChange(plan.id, 'dinnerPrice', e.target.value)}
+                            placeholder="D Price"
+                            className="w-full font-semibold text-xs py-1.5 px-2.5"
+                          />
+                        </div>
+                      </div>
+                      
                       <Button
                         variant="primary"
                         onClick={() => handleSavePlanConfig(plan)}
@@ -1026,35 +1523,154 @@ export default function SubscriptionsManager() {
                 </div>
               )}
 
-              {/* Read-only Subscription Configuration Details */}
+              {/* Editable Subscription Configuration Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-emerald-50/10 p-4.5 rounded-2xl border border-emerald-50/50 mt-1">
                 <div>
-                  <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Plan Status</span>
-                  <div className="mt-1.5 block">{getStatusBadge(selectedSub.status)}</div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-1">Plan Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full text-xs font-bold bg-white border border-emerald-100 rounded-xl px-3 py-2 text-text-dark focus:outline-none"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
                 </div>
 
                 <div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-1">Meals Remaining</label>
+                  <input
+                    type="number"
+                    value={editMeals}
+                    onChange={(e) => setEditMeals(Number(e.target.value))}
+                    className="w-full text-xs font-bold bg-white border border-emerald-100 rounded-xl px-3 py-2 text-text-dark focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-1">Preferred Menu Type</label>
+                  <select
+                    value={editMealCategory}
+                    onChange={(e) => setEditMealCategory(e.target.value)}
+                    className="w-full text-xs font-bold bg-white border border-emerald-100 rounded-xl px-3 py-2 text-text-dark focus:outline-none"
+                  >
+                    <option value="balanced">Balanced</option>
+                    <option value="diet">Diet</option>
+                    <option value="keto">Keto</option>
+                    <option value="high-protein">High Protein</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2 text-left">
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-2">Preferred Delivery Slots</label>
+                  <div className="flex gap-4 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs font-bold text-text-dark cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editHasBreakfast}
+                        onChange={(e) => setEditHasBreakfast(e.target.checked)}
+                        className="rounded border-emerald-200 text-primary focus:ring-primary w-4 h-4"
+                      />
+                      🍳 Breakfast
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-bold text-text-dark cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editHasLunch}
+                        onChange={(e) => setEditHasLunch(e.target.checked)}
+                        className="rounded border-emerald-200 text-primary focus:ring-primary w-4 h-4"
+                      />
+                      ☀️ Lunch
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-bold text-text-dark cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editHasDinner}
+                        onChange={(e) => setEditHasDinner(e.target.checked)}
+                        className="rounded border-emerald-200 text-primary focus:ring-primary w-4 h-4"
+                      />
+                      🌙 Dinner
+                    </label>
+                  </div>
+                </div>
+
+                {editHasBreakfast && (
+                  <div className="sm:col-span-2 text-left">
+                    <label className="text-[10px] text-gray-450 font-extrabold uppercase tracking-wider block mb-1">
+                      🍳 Breakfast Delivery Time (User Pref: {selectedSub.preferences?.customTimes?.breakfast || 'None'})
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 8:15 AM"
+                      value={editAllocatedBreakfast}
+                      onChange={(e) => setEditAllocatedBreakfast(e.target.value)}
+                      className="w-full text-xs font-bold bg-white border border-emerald-100 rounded-xl px-3 py-2 text-text-dark focus:outline-none"
+                    />
+                  </div>
+                )}
+                {editHasLunch && (
+                  <div className="sm:col-span-2 text-left">
+                    <label className="text-[10px] text-gray-455 font-extrabold uppercase tracking-wider block mb-1">
+                      ☀️ Lunch Delivery Time (User Pref: {selectedSub.preferences?.customTimes?.lunch || 'None'})
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1:30 PM"
+                      value={editAllocatedLunch}
+                      onChange={(e) => setEditAllocatedLunch(e.target.value)}
+                      className="w-full text-xs font-bold bg-white border border-emerald-100 rounded-xl px-3 py-2 text-text-dark focus:outline-none"
+                    />
+                  </div>
+                )}
+                {editHasDinner && (
+                  <div className="sm:col-span-2 text-left">
+                    <label className="text-[10px] text-gray-450 font-extrabold uppercase tracking-wider block mb-1">
+                      🌙 Dinner Delivery Time (User Pref: {selectedSub.preferences?.customTimes?.dinner || 'None'})
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 8:00 PM"
+                      value={editAllocatedDinner}
+                      onChange={(e) => setEditAllocatedDinner(e.target.value)}
+                      className="w-full text-xs font-bold bg-white border border-emerald-100 rounded-xl px-3 py-2 text-text-dark focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                <div className="sm:col-span-2 text-left">
                   <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Plan Duration Range</span>
-                  <span className="text-xs font-bold text-text-dark mt-2 block">
+                  <span className="text-xs font-bold text-text-dark mt-1 block">
                     {formatDate(selectedSub.startDate)} &rarr; {formatDate(selectedSub.endDate)}
                   </span>
                 </div>
-
-                <div>
-                  <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Preferred Menu Type</span>
-                  <span className="text-xs font-bold text-text-dark mt-2 block capitalize">{selectedSub.preferenceMealCategory}</span>
-                </div>
-
-                <div>
-                  <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block">Preferred Delivery Slot</span>
-                  <span className="text-xs font-bold text-text-dark mt-2 block capitalize">{selectedSub.preferenceDeliveryTime} Slot</span>
-                </div>
               </div>
 
-              <div className="flex mt-4 justify-end">
-                <Button variant="primary" onClick={() => setIsModalOpen(false)} className="rounded-xl px-6 py-2.5 text-xs font-bold shadow-subtle">
-                  Close Details
-                </Button>
+              <div className="flex mt-4 justify-between items-center gap-3">
+                {selectedSub.status === 'active' && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSendWhatsAppNotification(selectedSub)}
+                    isLoading={sendingSmsId === selectedSub.id}
+                    className="rounded-xl px-4 py-2.5 text-xs font-bold border-emerald-600 text-emerald-800 hover:bg-emerald-50 flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Mail className="w-4 h-4 text-emerald-800" /> Send Menu SMS
+                  </Button>
+                )}
+                <div className="flex gap-2 ml-auto">
+                  <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="rounded-xl px-4 py-2.5 text-xs font-bold">
+                    Close
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleUpdateSubscription}
+                    isLoading={updating}
+                    className="rounded-xl px-5 py-2.5 text-xs font-bold shadow-subtle bg-primary text-white"
+                  >
+                    Save Changes
+                  </Button>
+                </div>
               </div>
             </div>
           )

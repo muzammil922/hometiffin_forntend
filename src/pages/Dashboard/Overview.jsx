@@ -12,6 +12,7 @@ import io from 'socket.io-client'
 import { formatDate } from '../../services/dateFormatter'
 import { computeDailyOrderStats } from '../../services/orderStats'
 import { useToastStore } from '../../store/toastStore'
+import { OverviewSkeleton } from '../../components/skeletons/dashboardSkeletons'
 
 export default function Overview() {
   const { user, fetchProfile, updateProfile } = useAuthStore()
@@ -341,72 +342,7 @@ export default function Overview() {
         : 'Sides: Roti, Fresh Mint Raita, Seasonal Salad')
 
   if (loading) {
-    return (
-      <div className="flex flex-col gap-8 text-left w-full px-1 animate-pulse">
-        {/* Welcome Header Skeleton */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="h-9 bg-gray-200 rounded-lg w-64 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded-lg w-80"></div>
-          </div>
-        </div>
-
-        {/* TOP STATS ROW (4 CARDS) */}
-        <div className="flex overflow-x-auto lg:grid lg:grid-cols-4 gap-4 pb-2 snap-x snap-mandatory scrollbar-none">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="p-5 bg-white rounded-2xl border border-gray-100 flex flex-col gap-2 shrink-0 w-[200px] sm:w-[240px] lg:w-auto snap-start">
-              <div className="h-3 bg-gray-200 rounded w-16"></div>
-              <div className="h-6 bg-gray-200 rounded w-28 mt-1"></div>
-            </div>
-          ))}
-        </div>
-
-        {/* LOWER SECTION */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* Today's Tiffin Skeleton */}
-            <div className="p-6 bg-white rounded-2xl border border-gray-100 flex flex-col gap-4">
-              <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                <div className="flex flex-col gap-2">
-                  <div className="h-3 bg-gray-200 rounded w-20"></div>
-                  <div className="h-6 bg-gray-200 rounded w-48"></div>
-                </div>
-                <div className="h-6 bg-gray-200 rounded w-16"></div>
-              </div>
-              <div className="h-16 bg-gray-55 rounded-xl"></div>
-            </div>
-
-            {/* Plan Progress Skeleton */}
-            <div className="p-6 bg-white rounded-2xl border border-gray-100 flex flex-col gap-4">
-              <div className="flex justify-between items-center">
-                <div className="flex flex-col gap-2">
-                  <div className="h-3 bg-gray-200 rounded w-24"></div>
-                  <div className="h-5 bg-gray-200 rounded w-40"></div>
-                </div>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full mt-4"></div>
-            </div>
-          </div>
-
-          {/* RIGHT Column Skeleton */}
-          <div className="lg:col-span-1 flex flex-col gap-6">
-            <div className="p-6 bg-white rounded-2xl border border-gray-100 flex flex-col gap-4">
-              <div className="pb-3 border-b border-gray-100">
-                <div className="h-5 bg-gray-200 rounded w-28"></div>
-              </div>
-              <div className="flex flex-col gap-4 animate-pulse">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex flex-col gap-1.5">
-                    <div className="h-2.5 bg-gray-200 rounded w-20"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <OverviewSkeleton />
   }
 
   return (

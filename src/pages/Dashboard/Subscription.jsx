@@ -9,7 +9,34 @@ import { useToastStore } from '../../store/toastStore'
 import { useAuthStore } from '../../store/authStore'
 import api from '../../services/api'
 import { formatDate } from '../../services/dateFormatter'
-import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck, Check, Building2, User, Lock } from 'lucide-react'
+import { Calendar, Utensils, X, Play, ChevronRight, Loader2, Upload, CheckCircle2, Phone, AlertCircle, Copy, QrCode, ChevronDown, ChevronUp, Sun, Moon, Leaf, ArrowLeft, Sparkles, UploadCloud, ShieldCheck, Check, Building2, User, Lock, Clock } from 'lucide-react'
+import { SubscriptionSkeleton } from '../../components/skeletons/dashboardSkeletons'
+import { uploadImageToCloudinary } from '../../utils/cloudinary'
+
+const parseAllocatedTimes = (str, slots) => {
+  const times = {}
+  if (!str) return times
+  
+  const hasPrefixes = str.includes('B:') || str.includes('L:') || str.includes('D:')
+  if (hasPrefixes) {
+    const parts = str.split('|')
+    parts.forEach(part => {
+      const trimmed = part.trim()
+      if (trimmed.startsWith('B:')) {
+        times.breakfast = trimmed.replace('B:', '').trim()
+      } else if (trimmed.startsWith('L:')) {
+        times.lunch = trimmed.replace('L:', '').trim()
+      } else if (trimmed.startsWith('D:')) {
+        times.dinner = trimmed.replace('D:', '').trim()
+      }
+    })
+  } else if (slots) {
+    if (slots.breakfast) times.breakfast = str
+    if (slots.lunch) times.lunch = str
+    if (slots.dinner) times.dinner = str
+  }
+  return times
+}
 
 export default function Subscription() {
   const { addToast } = useToastStore()
@@ -52,11 +79,17 @@ export default function Subscription() {
   // Purchase Form States
   const [purchasePlan, setPurchasePlan] = useState(null) // null, 'weekly', 'monthly'
   const [preferenceMealCategory, setPreferenceMealCategory] = useState('Balanced')
-  const [preferenceDeliveryTime, setPreferenceDeliveryTime] = useState('lunch')
+  const [hasBreakfast, setHasBreakfast] = useState(false)
+  const [hasLunch, setHasLunch] = useState(true)
+  const [hasDinner, setHasDinner] = useState(false)
+  const [breakfastPrefTime, setBreakfastPrefTime] = useState('8:00 AM')
+  const [lunchPrefTime, setLunchPrefTime] = useState('1:30 PM')
+  const [dinnerPrefTime, setDinnerPrefTime] = useState('8:30 PM')
   const [paymentMethod, setPaymentMethod] = useState('meezan') // 'meezan', 'jazzcash'
   const [showManualDetails, setShowManualDetails] = useState(false)
   const [screenshot, setScreenshot] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   // Company Form States
   const [isCompany, setIsCompany] = useState(false)
@@ -124,13 +157,27 @@ export default function Subscription() {
     try {
       setPlansLoading(true)
       const res = await api.get('/subscriptions/plans')
-      setPlans(res.data)
+      let fetchedPlans = [...res.data]
+      if (fetchedPlans.length > 0 && !fetchedPlans.some(p => p.planType === 'company')) {
+        fetchedPlans.push({
+          id: 'company',
+          planType: 'company',
+          price: 300,
+          totalMeals: 24,
+          validityDays: 30,
+          breakfastPrice: 200,
+          lunchPrice: 300,
+          dinnerPrice: 300
+        })
+      }
+      setPlans(fetchedPlans)
     } catch (err) {
       console.error('Failed to load subscription plans:', err)
       addToast('Failed to load subscription plans. Using defaults.', 'error')
       setPlans([
         { id: 'weekly', planType: 'weekly', price: 1800, totalMeals: 6, validityDays: 7 },
-        { id: 'monthly', planType: 'monthly', price: 7000, totalMeals: 24, validityDays: 30 }
+        { id: 'monthly', planType: 'monthly', price: 7000, totalMeals: 24, validityDays: 30 },
+        { id: 'company', planType: 'company', price: 300, totalMeals: 24, validityDays: 30, breakfastPrice: 200, lunchPrice: 300, dinnerPrice: 300 }
       ])
     } finally {
       setPlansLoading(false)
@@ -172,18 +219,25 @@ export default function Subscription() {
     }
   }
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         addToast('File is too large. Max size is 5MB.', 'error')
         return
       }
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setScreenshot(reader.result) // Base64 string
-      };
-      reader.readAsDataURL(file)
+      try {
+        setUploadingImage(true)
+        addToast('Uploading receipt proof...', 'info')
+        const url = await uploadImageToCloudinary(file)
+        setScreenshot(url)
+        addToast('Receipt proof uploaded successfully!', 'success')
+      } catch (err) {
+        console.error('Cloudinary upload error:', err)
+        addToast(err.message || 'Failed to upload receipt image.', 'error')
+      } finally {
+        setUploadingImage(false)
+      }
     }
   }
 
@@ -194,6 +248,10 @@ export default function Subscription() {
 
   const handlePurchaseSubmit = async (e) => {
     e.preventDefault()
+    if (!hasBreakfast && !hasLunch && !hasDinner) {
+      addToast('Please select at least one delivery meal slot (Breakfast, Lunch, or Dinner).', 'error')
+      return
+    }
     if (!screenshot) {
       addToast('Please upload payment screenshot proof.', 'error')
       return
@@ -208,7 +266,17 @@ export default function Subscription() {
         planType: purchasePlan,
         preferences: {
           mealCategory: preferenceMealCategory,
-          deliveryTime: preferenceDeliveryTime
+          mealSlots: {
+            breakfast: hasBreakfast,
+            lunch: hasLunch,
+            dinner: hasDinner
+          },
+          deliveryTime: hasLunch ? 'lunch' : (hasDinner ? 'dinner' : 'breakfast'),
+          customTimes: {
+            breakfast: hasBreakfast ? breakfastPrefTime : undefined,
+            lunch: hasLunch ? lunchPrefTime : undefined,
+            dinner: hasDinner ? dinnerPrefTime : undefined
+          }
         },
         paymentScreenshotUrl: screenshot,
         isCompany,
@@ -239,29 +307,7 @@ export default function Subscription() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-col gap-8 text-left w-full animate-pulse">
-        <div>
-          <div className="h-8 bg-gray-200 rounded-lg w-56 mb-2" />
-          <div className="h-4 bg-gray-200 rounded-lg w-80" />
-        </div>
-        <div className="p-8 bg-white rounded-3xl border border-gray-150 flex flex-col gap-6">
-          <div className="flex justify-between gap-4 pb-6 border-b border-gray-100">
-            <div className="flex gap-4 items-center">
-              <div className="w-14 h-14 bg-gray-200 rounded-2xl" />
-              <div className="flex flex-col gap-2">
-                <div className="h-5 bg-gray-200 rounded-lg w-40" />
-                <div className="h-3 bg-gray-200 rounded-lg w-28" />
-              </div>
-            </div>
-            <div className="w-24 h-10 bg-gray-200 rounded-xl" />
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[1,2,3,4].map(i => <div key={i} className="h-10 bg-gray-100 rounded-xl" />)}
-          </div>
-        </div>
-      </div>
-    )
+    return <SubscriptionSkeleton />
   }
 
   // ── PENDING VERIFICATION STATE ──
@@ -338,10 +384,22 @@ export default function Subscription() {
                     <Sun className="w-4 h-4 text-amber-500" />
                   </div>
                   <div>
-                    <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Preferred Delivery Slot</p>
-                    <p className="text-sm font-black text-text-dark capitalize">
-                      {subscription.preferenceDeliveryTime === 'dinner' ? '🌙 Dinner Slot (7:30 PM – 9:00 PM)' : '☀️ Lunch Slot (12:30 PM – 2:00 PM)'}
-                    </p>
+                    <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Preferred Delivery Slots & Times</p>
+                    <div className="text-xs font-bold text-text-dark capitalize flex flex-col gap-1 mt-0.5">
+                      {(() => {
+                        const slots = []
+                        const mealSlots = subscription.preferences?.mealSlots
+                        const custom = subscription.preferences?.customTimes || {}
+                        if (mealSlots) {
+                          if (mealSlots.breakfast) slots.push(`🍳 Breakfast: ${custom.breakfast || '8:00 AM'}`)
+                          if (mealSlots.lunch) slots.push(`☀️ Lunch: ${custom.lunch || '1:30 PM'}`)
+                          if (mealSlots.dinner) slots.push(`🌙 Dinner: ${custom.dinner || '8:30 PM'}`)
+                        } else {
+                          slots.push(subscription.preferenceDeliveryTime === 'dinner' ? '🌙 Dinner Slot' : '☀️ Lunch Slot')
+                        }
+                        return slots.map((s, idx) => <span key={idx}>{s}</span>)
+                      })()}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -395,14 +453,53 @@ export default function Subscription() {
       totalMeals: purchasePlan === 'weekly' ? 6 : 24,
       validityDays: purchasePlan === 'weekly' ? 7 : 30
     }
+    
+    // Dynamic price based on slot selections
+    const rawPrice = selectedPlanConfig.price || (purchasePlan === 'weekly' ? 1800 : 7000)
+    let breakfastPrice = 0
+    let lunchPrice = 0
+    let dinnerPrice = 0
+    let basePricePerWorker = 0
+
+    if (isCompany) {
+      // Company plan: Admin configures price PER SINGLE MEAL
+      breakfastPrice = selectedPlanConfig.breakfastPrice || Math.round(rawPrice * 0.8) // fallback if unconfigured
+      lunchPrice = selectedPlanConfig.lunchPrice || rawPrice
+      dinnerPrice = selectedPlanConfig.dinnerPrice || rawPrice
+      
+      // Calculate single meal base cost per worker
+      let singleMealCost = 0
+      if (hasBreakfast) singleMealCost += breakfastPrice
+      if (hasLunch) singleMealCost += lunchPrice
+      if (hasDinner) singleMealCost += dinnerPrice
+      
+      // Multiply by totalMeals (e.g. 24) to get base price per worker for the entire plan duration
+      basePricePerWorker = singleMealCost * selectedPlanConfig.totalMeals
+    } else {
+      // Individual weekly/monthly plans: Admin configures FLAT price for the entire plan
+      breakfastPrice = selectedPlanConfig.breakfastPrice || Math.round(rawPrice * 0.25)
+      lunchPrice = selectedPlanConfig.lunchPrice || Math.round(rawPrice * 0.40)
+      dinnerPrice = selectedPlanConfig.dinnerPrice || Math.round(rawPrice * 0.40)
+      
+      if (hasBreakfast) basePricePerWorker += breakfastPrice
+      if (hasLunch) basePricePerWorker += lunchPrice
+      if (hasDinner) basePricePerWorker += dinnerPrice
+    }
+    
     const discountAmount = selectedPlanConfig.discount || 0
     const totalWorkers = isCompany ? (parseInt(workerCount, 10) || 1) : 1
-    const basePrice = Math.max(0, selectedPlanConfig.price - discountAmount)
-    const finalPrice = basePrice * totalWorkers
+    const subtotal = basePricePerWorker * totalWorkers
+    const finalPrice = Math.max(0, subtotal - discountAmount)
     const planPrice = `PKR ${finalPrice.toLocaleString()}`
+    const isNoSlotSelected = !hasBreakfast && !hasLunch && !hasDinner
+    
+    // Calculate total meals count based on slots active
+    const activeSlotsCount = (hasBreakfast ? 1 : 0) + (hasLunch ? 1 : 0) + (hasDinner ? 1 : 0)
+    const deliveriesCount = activeSlotsCount * selectedPlanConfig.totalMeals
+    
     const planDesc = isCompany
-      ? `${selectedPlanConfig.totalMeals * totalWorkers} Total Meals (${selectedPlanConfig.totalMeals} days x ${totalWorkers} workers) delivered daily`
-      : `${selectedPlanConfig.totalMeals} Meals (Lunch/Dinner) delivered daily for ${selectedPlanConfig.validityDays} days`
+      ? `${deliveriesCount * totalWorkers} Total Meals (${deliveriesCount} deliveries x ${totalWorkers} workers) for ${selectedPlanConfig.validityDays} days`
+      : `${deliveriesCount} Meals delivered over ${selectedPlanConfig.validityDays} days`
     const isWeekly = purchasePlan === 'weekly'
 
     return (
@@ -556,6 +653,171 @@ export default function Subscription() {
                 </div>
               </Card>
             )}
+
+            {/* Meal Preferences & Slots Selection Card */}
+            <Card className="p-6 border border-emerald-100 bg-white rounded-3xl" hoverable={false}>
+              <div className="flex items-center gap-2 border-b border-emerald-50 pb-3 mb-5 text-left">
+                <h3 className="font-extrabold text-text-dark text-base">Meal Preferences & Delivery Slots</h3>
+              </div>
+
+              <div className="flex flex-col gap-6 text-left">
+                {/* Preferred Meal Category */}
+                <div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-2.5 block">
+                    Preferred Menu Category
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {['Balanced', 'Diet', 'Keto', 'High Protein'].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setPreferenceMealCategory(cat)}
+                        className={`py-3.5 px-2 rounded-2xl border-2 text-center text-xs font-black transition-all cursor-pointer ${
+                          preferenceMealCategory === cat
+                            ? 'border-primary bg-emerald-50/15 shadow-sm text-primary'
+                            : 'border-gray-150 hover:border-emerald-100 bg-white text-text-dark'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Delivery Meal Slots Checkboxes */}
+                <div>
+                  <label className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mb-2.5 block">
+                    Select Delivery Meal Slots (Price dynamic based on slots)
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Breakfast Slot */}
+                    <div
+                      className={`flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all ${
+                        hasBreakfast
+                          ? 'border-primary bg-emerald-50/15 shadow-sm'
+                          : 'border-gray-150 hover:border-emerald-100 bg-white'
+                      }`}
+                    >
+                      <div 
+                        onClick={() => setHasBreakfast(!hasBreakfast)}
+                        className="flex items-center gap-3 cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={hasBreakfast}
+                          onChange={() => {}} // Click handled by parent div click
+                          className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <div className="text-left flex-1">
+                          <p className="text-xs font-bold text-text-dark">🍳 Breakfast</p>
+                          <p className="text-[10px] text-gray-450 font-semibold mt-0.5">
+                            PKR {breakfastPrice.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      {hasBreakfast && (
+                        <div className="mt-1 flex flex-col gap-1 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                          <label className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Preferred Time</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 8:00 AM"
+                            value={breakfastPrefTime}
+                            onChange={(e) => setBreakfastPrefTime(e.target.value)}
+                            className="w-full text-[11px] font-bold bg-white text-text-dark focus:outline-none border border-emerald-100 focus:border-primary rounded-xl px-3 py-2"
+                            onClick={(e) => e.stopPropagation()} // Stop checkbox toggle when typing
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lunch Slot */}
+                    <div
+                      className={`flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all ${
+                        hasLunch
+                          ? 'border-primary bg-emerald-50/15 shadow-sm'
+                          : 'border-gray-150 hover:border-emerald-100 bg-white'
+                      }`}
+                    >
+                      <div 
+                        onClick={() => setHasLunch(!hasLunch)}
+                        className="flex items-center gap-3 cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={hasLunch}
+                          onChange={() => {}} // Click handled by parent div click
+                          className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <div className="text-left flex-1">
+                          <p className="text-xs font-bold text-text-dark">☀️ Lunch</p>
+                          <p className="text-[10px] text-gray-455 font-semibold mt-0.5">
+                            PKR {lunchPrice.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      {hasLunch && (
+                        <div className="mt-1 flex flex-col gap-1 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                          <label className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Preferred Time</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 1:30 PM"
+                            value={lunchPrefTime}
+                            onChange={(e) => setLunchPrefTime(e.target.value)}
+                            className="w-full text-[11px] font-bold bg-white text-text-dark focus:outline-none border border-emerald-100 focus:border-primary rounded-xl px-3 py-2"
+                            onClick={(e) => e.stopPropagation()} // Stop checkbox toggle when typing
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dinner Slot */}
+                    <div
+                      className={`flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all ${
+                        hasDinner
+                          ? 'border-primary bg-emerald-50/15 shadow-sm'
+                          : 'border-gray-150 hover:border-emerald-100 bg-white'
+                      }`}
+                    >
+                      <div 
+                        onClick={() => setHasDinner(!hasDinner)}
+                        className="flex items-center gap-3 cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={hasDinner}
+                          onChange={() => {}} // Click handled by parent div click
+                          className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <div className="text-left flex-1">
+                          <p className="text-xs font-bold text-text-dark">🌙 Dinner</p>
+                          <p className="text-[10px] text-gray-450 font-semibold mt-0.5">
+                            PKR {dinnerPrice.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      {hasDinner && (
+                        <div className="mt-1 flex flex-col gap-1 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                          <label className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider">Preferred Time</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 8:30 PM"
+                            value={dinnerPrefTime}
+                            onChange={(e) => setDinnerPrefTime(e.target.value)}
+                            className="w-full text-[11px] font-bold bg-white text-text-dark focus:outline-none border border-emerald-100 focus:border-primary rounded-xl px-3 py-2"
+                            onClick={(e) => e.stopPropagation()} // Stop checkbox toggle when typing
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {isNoSlotSelected && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-2 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" /> Please select at least one delivery meal slot to continue.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
 
             <Card className="p-6 border border-emerald-100 bg-white rounded-3xl" hoverable={false}>
               <div className="flex items-center gap-2 border-b border-emerald-50 pb-3 mb-5">
@@ -816,12 +1078,49 @@ export default function Subscription() {
                   <span className="text-gray-400">Total Deliveries</span>
                   <span className="text-text-dark font-bold">{isCompany ? `${selectedPlanConfig.totalMeals * totalWorkers} Meals` : `${selectedPlanConfig.totalMeals} Tiffin Meals`}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs font-semibold">
-                  <span className="text-gray-400">Base Plan Price</span>
-                  <span className="text-text-dark font-bold">PKR {selectedPlanConfig.price.toLocaleString()}</span>
+                
+                <div className="flex flex-col gap-1 text-[11px] bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100/50 my-2 text-left">
+                  <p className="font-extrabold text-primary uppercase tracking-wider mb-1">
+                    {isCompany ? 'Single Meal Slots Selection' : 'Meal Slots Selection'}
+                  </p>
+                  {hasBreakfast && (
+                    <div className="flex justify-between font-semibold">
+                      <span className="text-gray-500">Breakfast Slot</span>
+                      <span className="text-text-dark">PKR {breakfastPrice.toLocaleString()} {isCompany && 'per meal'}</span>
+                    </div>
+                  )}
+                  {hasLunch && (
+                    <div className="flex justify-between font-semibold">
+                      <span className="text-gray-500">Lunch Slot</span>
+                      <span className="text-text-dark">PKR {lunchPrice.toLocaleString()} {isCompany && 'per meal'}</span>
+                    </div>
+                  )}
+                  {hasDinner && (
+                    <div className="flex justify-between font-semibold">
+                      <span className="text-gray-500">Dinner Slot</span>
+                      <span className="text-text-dark">PKR {dinnerPrice.toLocaleString()} {isCompany && 'per meal'}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-dashed border-emerald-200/50 my-1" />
+                  <div className="flex justify-between font-bold text-text-dark">
+                    <span>{isCompany ? 'Total Cost Per Meal' : 'Base Price per Worker'}</span>
+                    <span>
+                      PKR {isCompany 
+                        ? ((hasBreakfast ? breakfastPrice : 0) + (hasLunch ? lunchPrice : 0) + (hasDinner ? dinnerPrice : 0)).toLocaleString()
+                        : basePricePerWorker.toLocaleString()
+                      }
+                    </span>
+                  </div>
+                  {isCompany && (
+                    <div className="flex justify-between font-bold text-text-dark">
+                      <span>Total Cost Per Worker</span>
+                      <span>PKR {basePricePerWorker.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
+
                 {discountAmount > 0 && (
-                  <div className="flex justify-between items-center text-xs font-bold text-emerald-600 bg-emerald-50/50 px-2.5 py-1 rounded-lg border border-emerald-100/50">
+                  <div className="flex justify-between items-center text-xs font-bold text-emerald-600 bg-emerald-50/55 px-2.5 py-1 rounded-lg border border-emerald-100/50">
                     <span>Discount Applied</span>
                     <span>- PKR {discountAmount.toLocaleString()}</span>
                   </div>
@@ -854,7 +1153,13 @@ export default function Subscription() {
               </div>
               
               <div className="flex flex-col gap-4">
-                {!screenshot ? (
+                {uploadingImage ? (
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-primary/20 rounded-2xl p-6 bg-emerald-50/5">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin mb-2" />
+                    <span className="text-xs font-bold text-text-dark">Uploading Receipt...</span>
+                    <span className="text-[9px] text-gray-400 font-semibold">Please wait, uploading to secure server</span>
+                  </div>
+                ) : !screenshot ? (
                   <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl p-6 hover:bg-emerald-50/10 hover:border-primary cursor-pointer transition-all group">
                     <div className="p-3 bg-emerald-50 rounded-xl text-primary mb-2 group-hover:scale-105 transition-all">
                       <UploadCloud className="w-6 h-6" />
@@ -897,7 +1202,8 @@ export default function Subscription() {
                   type="submit"
                   variant="primary"
                   isLoading={submitting}
-                  className="rounded-2xl w-full py-3.5 font-bold shadow-subtle text-sm flex items-center justify-center gap-2 cursor-pointer bg-primary text-white hover:bg-emerald-700"
+                  disabled={uploadingImage || !screenshot}
+                  className="rounded-2xl w-full py-3.5 font-bold shadow-subtle text-sm flex items-center justify-center gap-2 cursor-pointer bg-primary text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Submitting...' : `Subscribe Now`}
                 </Button>
@@ -1448,18 +1754,46 @@ export default function Subscription() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
             {/* Time Slot card */}
             <div className="flex items-center gap-4 p-5 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
-              <div className={`p-3.5 rounded-xl shrink-0 ${
-                subscription.preferenceDeliveryTime === 'dinner' 
-                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
-                  : 'bg-amber-50 text-amber-600 border border-amber-100'
-              }`}>
-                {subscription.preferenceDeliveryTime === 'dinner' ? <Moon className="w-6 h-6 animate-pulse" /> : <Sun className="w-6 h-6 text-amber-500" />}
+              <div className="p-3.5 bg-amber-50 text-amber-650 border border-amber-150 rounded-xl shrink-0">
+                <Sun className="w-6 h-6 text-amber-500" />
               </div>
               <div className="text-left">
-                <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-0.5">Delivery Time Slot</span>
-                <span className="text-sm font-black text-text-dark mt-1 block">
-                  {subscription.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM – 9:00 PM)' : 'Lunch (12:30 PM – 2:00 PM)'}
-                </span>
+                <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider block mb-0.5">Meal Slots & Delivery Times</span>
+                {(() => {
+                  const slots = []
+                  const mealSlots = subscription.preferences?.mealSlots
+                  const parsedAllocated = parseAllocatedTimes(subscription.allocatedDeliveryTime, mealSlots)
+                  const allocated = {
+                    ...parsedAllocated,
+                    ...(subscription.preferences?.allocatedTimes || subscription.allocatedTimes || {})
+                  }
+                  const custom = subscription.preferences?.customTimes || {}
+                  
+                  if (mealSlots) {
+                    if (mealSlots.breakfast) {
+                      const time = allocated.breakfast || (custom.breakfast ? `${custom.breakfast} (Requested)` : 'Pending Admin')
+                      slots.push(`🍳 Breakfast: ${time}`)
+                    }
+                    if (mealSlots.lunch) {
+                      const time = allocated.lunch || (custom.lunch ? `${custom.lunch} (Requested)` : 'Pending Admin')
+                      slots.push(`☀️ Lunch: ${time}`)
+                    }
+                    if (mealSlots.dinner) {
+                      const time = allocated.dinner || (custom.dinner ? `${custom.dinner} (Requested)` : 'Pending Admin')
+                      slots.push(`🌙 Dinner: ${time}`)
+                    }
+                  } else {
+                    slots.push(subscription.preferenceDeliveryTime === 'dinner' ? '🌙 Dinner' : '☀️ Lunch')
+                  }
+                  
+                  return (
+                    <div className="flex flex-col gap-1 mt-1">
+                      {slots.map((s, idx) => (
+                        <div key={idx} className="text-xs font-bold text-text-dark">{s}</div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
@@ -1475,6 +1809,21 @@ export default function Subscription() {
                 </span>
               </div>
             </div>
+
+            {/* Allocated Delivery Time card */}
+            {subscription.allocatedDeliveryTime && (
+              <div className="flex items-center gap-4 p-5 bg-emerald-50 border border-emerald-200/80 rounded-2xl md:col-span-2">
+                <div className="p-3.5 bg-primary text-white rounded-xl shrink-0">
+                  <Clock className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-primary font-black uppercase tracking-wider block mb-0.5">Allocated Delivery Time</span>
+                  <span className="text-sm font-black text-text-dark mt-1 block">
+                    {subscription.allocatedDeliveryTime} (Expected Daily Delivery)
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Change Request CTA box */}
@@ -1838,18 +2187,46 @@ export default function Subscription() {
             <div className="grid grid-cols-1 gap-3">
               {/* Time Slot card */}
               <div className="flex items-center gap-3 p-4 bg-[#F9FBF9] border border-emerald-100/35 rounded-2xl">
-                <div className={`p-2.5 rounded-xl shrink-0 ${
-                  subscription.preferenceDeliveryTime === 'dinner' 
-                    ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
-                    : 'bg-amber-50 text-amber-600 border border-amber-100'
-                }`}>
-                  {subscription.preferenceDeliveryTime === 'dinner' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-amber-500" />}
+                <div className="p-2.5 bg-amber-50 text-amber-650 border border-amber-150 rounded-xl shrink-0">
+                  <Sun className="w-5 h-5 text-amber-500" />
                 </div>
                 <div className="text-left">
-                  <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider block">Time Slot</span>
-                  <span className="text-xs font-black text-text-dark mt-0.5 block">
-                    {subscription.preferenceDeliveryTime === 'dinner' ? 'Dinner (7:30 PM – 9:00 PM)' : 'Lunch (12:30 PM – 2:00 PM)'}
-                  </span>
+                  <span className="text-[9px] text-gray-400 font-extrabold uppercase tracking-wider block">Meal Slots & Delivery Times</span>
+                  {(() => {
+                    const slots = []
+                    const mealSlots = subscription.preferences?.mealSlots
+                    const parsedAllocated = parseAllocatedTimes(subscription.allocatedDeliveryTime, mealSlots)
+                    const allocated = {
+                      ...parsedAllocated,
+                      ...(subscription.preferences?.allocatedTimes || subscription.allocatedTimes || {})
+                    }
+                    const custom = subscription.preferences?.customTimes || {}
+                    
+                    if (mealSlots) {
+                      if (mealSlots.breakfast) {
+                        const time = allocated.breakfast || (custom.breakfast ? `${custom.breakfast} (Requested)` : 'Pending Admin')
+                        slots.push(`🍳 Breakfast: ${time}`)
+                      }
+                      if (mealSlots.lunch) {
+                        const time = allocated.lunch || (custom.lunch ? `${custom.lunch} (Requested)` : 'Pending Admin')
+                        slots.push(`☀️ Lunch: ${time}`)
+                      }
+                      if (mealSlots.dinner) {
+                        const time = allocated.dinner || (custom.dinner ? `${custom.dinner} (Requested)` : 'Pending Admin')
+                        slots.push(`🌙 Dinner: ${time}`)
+                      }
+                    } else {
+                      slots.push(subscription.preferenceDeliveryTime === 'dinner' ? '🌙 Dinner' : '☀️ Lunch')
+                    }
+                    
+                    return (
+                      <div className="flex flex-col gap-1 mt-0.5">
+                        {slots.map((s, idx) => (
+                          <div key={idx} className="text-xs font-bold text-text-dark">{s}</div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
 
@@ -1865,6 +2242,21 @@ export default function Subscription() {
                   </span>
                 </div>
               </div>
+
+              {/* Allocated Delivery Time card */}
+              {subscription.allocatedDeliveryTime && (
+                <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                  <div className="p-2.5 bg-primary text-white rounded-xl shrink-0">
+                    <Clock className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[9px] text-primary font-black uppercase tracking-wider block">Allocated Delivery Time</span>
+                    <span className="text-xs font-black text-text-dark mt-0.5 block">
+                      {subscription.allocatedDeliveryTime} (Expected Delivery)
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Change Request CTA box */}

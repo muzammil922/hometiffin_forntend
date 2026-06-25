@@ -127,7 +127,7 @@ export default function Sidebar({ children }) {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-1 text-left flex-1 overflow-y-auto">
+        <nav className="flex flex-col gap-1 text-left flex-1 overflow-y-auto scrollbar-none">
           {menuItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.path)
@@ -175,59 +175,56 @@ export default function Sidebar({ children }) {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-              className="md:hidden fixed top-0 left-0 bottom-0 w-[72vw] max-w-[280px] z-50 flex flex-col overflow-y-auto"
+              className="md:hidden fixed top-0 left-0 bottom-0 w-[72vw] max-w-[280px] z-50 flex flex-col bg-transparent py-6 shadow-none h-full"
             >
-              <div className="h-[80vh] my-auto flex flex-col w-full">
-                {/* Header - only logo, no X button */}
-                <div className="flex items-center px-5 pb-4">
-                  <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-                      <ChefHat className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-white font-black text-base">Home Tiffin</span>
-                  </Link>
-                </div>
+              {/* Header - only logo, no X button */}
+              <div className="flex items-center px-5 pb-4 shrink-0">
+                <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+                    <ChefHat className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-white font-black text-base">Home Tiffin</span>
+                </Link>
+              </div>
 
-                {/* Nav - no name/email */}
-                <nav className="flex flex-col gap-4 px-3 mt-6">
-                  {menuItems.map((item, i) => {
-                    const Icon = item.icon
-                    const active = isActive(item.path)
-                    return (
-                      <motion.div
-                        key={item.name}
-                        initial={{ opacity: 0, x: -16 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.04 * i, duration: 0.22 }}
-                      >
-                        <Link
-                          to={item.path}
-                          onClick={() => setDrawerOpen(false)}
-                          className={`flex items-center gap-3 py-2.5 rounded-r-xl rounded-l-none text-sm font-semibold transition-all w-fit relative ${
-                            active
-                              ? 'bg-primary/90 text-white pl-3 pr-4 border-l-4 border-white'
-                              : 'text-white/65 hover:text-white hover:bg-white/8 pl-4 pr-4'
+              {/* Nav - scrollable middle block */}
+              <nav className="flex-1 overflow-y-auto flex flex-col gap-4 px-3 mt-6 scrollbar-none">
+                {menuItems.map((item, i) => {
+                  const Icon = item.icon
+                  const active = isActive(item.path)
+                  return (
+                    <motion.div
+                      key={item.name}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.04 * i, duration: 0.22 }}
+                    >
+                      <Link
+                        to={item.path}
+                        onClick={() => setDrawerOpen(false)}
+                        className={`flex items-center gap-3 py-2.5 rounded-r-xl rounded-l-none text-sm font-semibold transition-all w-fit relative ${active
+                          ? 'bg-transparent text-white pl-3 pr-4 border-l-4 border-white'
+                          : 'text-white/65 hover:text-white hover:bg-white/8 pl-4 pr-4'
                           }`}
-                        >
-                          <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-white' : 'text-white/40'}`} />
-                          <span>{item.name}</span>
-                          {active && <span className="ml-4 w-2 h-2 rounded-full bg-white opacity-80 shrink-0" />}
-                        </Link>
-                      </motion.div>
-                    )
-                  })}
-                </nav>
+                      >
+                        <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-white' : 'text-white/40'}`} />
+                        <span>{item.name}</span>
+                        {active && <span className="ml-4 w-2 h-2 rounded-full bg-white opacity-80 shrink-0" />}
+                      </Link>
+                    </motion.div>
+                  )
+                })}
+              </nav>
 
-                {/* Logout */}
-                <div className="px-3 mt-auto">
-                  <button
-                    onClick={() => { handleLogout(); setDrawerOpen(false) }}
-                    className="w-fit flex items-center gap-3 pl-4 pr-4 py-2.5 bg-accent/20 text-rose-400 hover:bg-accent/30 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span>Logout</span>
-                  </button>
-                </div>
+              {/* Logout */}
+              <div className="px-5 mt-auto pt-4 shrink-0">
+                <button
+                  onClick={() => { handleLogout(); setDrawerOpen(false) }}
+                  className="w-fit flex items-center gap-3 pl-4 pr-4 py-2.5 bg-accent/20 text-rose-400 hover:bg-accent/30 rounded-xl text-sm font-semibold cursor-pointer transition-all"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Logout</span>
+                </button>
               </div>
             </motion.aside>
           </>
@@ -300,9 +297,8 @@ export default function Sidebar({ children }) {
                 key={item.name}
                 to={item.path}
                 onClick={() => setDrawerOpen(false)}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 transition-all ${
-                  active ? 'text-primary' : 'text-gray-400'
-                }`}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 transition-all ${active ? 'text-primary' : 'text-gray-400'
+                  }`}
               >
                 <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-emerald-50' : ''}`}>
                   <Icon className={`w-5 h-5 ${active ? 'text-primary' : 'text-gray-400'}`} />
