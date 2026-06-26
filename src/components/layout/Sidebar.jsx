@@ -20,6 +20,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
+import AnimatedLogo from '../shared/AnimatedLogo'
 
 export default function Sidebar({ children }) {
   const location = useLocation()
@@ -109,7 +110,7 @@ export default function Sidebar({ children }) {
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-emerald-100 p-6 shadow-subtle h-full shrink-0">
         <div className="mb-8 text-left">
           <Link to="/" className="text-xl font-black tracking-tight text-primary flex items-center gap-2">
-            <ChefHat className="w-5 h-5 text-primary" />
+            <AnimatedLogo className="h-7" />
             Home Tiffin
           </Link>
           <span className="text-[10px] bg-accent px-2 py-0.5 rounded-full font-bold text-text-dark mt-2 inline-block">
@@ -180,9 +181,7 @@ export default function Sidebar({ children }) {
               {/* Header - only logo, no X button */}
               <div className="flex items-center px-5 pb-4 shrink-0">
                 <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-                    <ChefHat className="w-5 h-5 text-white" />
-                  </div>
+                  <AnimatedLogo className="h-7" />
                   <span className="text-white font-black text-base">Home Tiffin</span>
                 </Link>
               </div>
@@ -272,7 +271,7 @@ export default function Sidebar({ children }) {
             {drawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <Link to="/" className="text-base font-black tracking-tight text-primary flex items-center gap-2 flex-1">
-            <ChefHat className="w-5 h-5 text-primary" />
+            <AnimatedLogo className="h-6" />
             Home Tiffin
           </Link>
           <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs shrink-0">

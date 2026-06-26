@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../store/authStore'
 import { useCartStore } from '../../store/cartStore'
 import Button from '../ui/Button'
+import AnimatedLogo from '../shared/AnimatedLogo'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -33,7 +34,7 @@ export default function Navbar() {
         {/* Logo left */}
         <Link to="/" className="flex items-center gap-2 cursor-pointer">
           <span className="text-2xl font-black tracking-tight text-primary flex items-center gap-2">
-            <ChefHat className="w-6 h-6 text-primary" />
+            <AnimatedLogo className="h-8" />
             Home Tiffin
           </span>
         </Link>

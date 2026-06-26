@@ -11,6 +11,7 @@ import Input from '../components/ui/Input'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import api from '../services/api'
+import AnimatedLogo from '../components/shared/AnimatedLogo'
 
 // Zod Registration Schema
 const registerSchema = z.object({
@@ -101,7 +102,7 @@ export default function Register() {
         <div className="w-full md:w-[46%] bg-transparent md:bg-white md:rounded-3xl p-2 md:p-8 shadow-none md:shadow-card flex flex-col gap-5 text-left border border-transparent md:border-emerald-50/50">
           {/* Logo Header */}
           <div className="flex items-center gap-1.5 text-primary text-xs font-black tracking-wider uppercase mb-1">
-            <ChefHat className="w-5 h-5 text-primary" />
+            <AnimatedLogo className="h-7" />
             <span>Home Tiffin</span>
           </div>
 

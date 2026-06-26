@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Phone, Mail, ChefHat, Zap } from 'lucide-react'
+import AnimatedLogo from '../shared/AnimatedLogo'
 
 export default function Footer({ collapsible = false }) {
   const footerClasses = collapsible
@@ -13,7 +14,7 @@ export default function Footer({ collapsible = false }) {
         <div className="flex items-center justify-between w-full max-w-7xl mx-auto h-9 opacity-100 group-hover/footer:opacity-0 group-hover/footer:pointer-events-none transition-opacity duration-300">
           <div className="flex items-center gap-2 sm:gap-3 overflow-hidden">
             <span className="text-sm font-black text-white flex items-center gap-1.5 whitespace-nowrap shrink-0">
-              <ChefHat className="w-4 h-4 text-accent shrink-0" />
+              <AnimatedLogo className="h-5" />
               Home Tiffin
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse shrink-0" />
@@ -39,7 +40,7 @@ export default function Footer({ collapsible = false }) {
           {/* Brand/Logo column */}
           <div className="flex flex-col gap-4">
             <Link to="/" className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              <ChefHat className="w-6 h-6 text-accent" />
+              <AnimatedLogo className="h-8" />
               Home Tiffin
             </Link>
             <p className="text-sm text-accent-light leading-relaxed">
