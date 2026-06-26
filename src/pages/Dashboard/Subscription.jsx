@@ -288,8 +288,8 @@ export default function Subscription() {
         workerCount: isCompany ? parseInt(workerCount, 10) : undefined
       })
 
-      // Wait 7.5 seconds to let the truck animation play completely
-      await new Promise((resolve) => setTimeout(resolve, 7500))
+      // Wait 9 seconds to let the truck animation play completely and success text bounce in
+      await new Promise((resolve) => setTimeout(resolve, 9000))
 
       const res = await resPromise
 

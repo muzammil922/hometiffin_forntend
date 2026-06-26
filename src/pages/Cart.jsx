@@ -162,7 +162,7 @@ export default function Cart() {
           setIsCheckingOut(false)
           setIsConfirmModalOpen(false)
           navigate('/dashboard/overview')
-        }, 7500)
+        }, 9000)
       } catch (err) {
         console.error('Failed to place order:', err)
         addToast(err.response?.data?.error || 'Failed to place order. Please try again.', 'error')
@@ -188,7 +188,7 @@ export default function Cart() {
           setIsCheckingOut(false)
           setIsConfirmModalOpen(false)
           navigate('/menu')
-        }, 7500)
+        }, 9000)
       } catch (err) {
         console.error('Failed to place guest order:', err)
         addToast(err.response?.data?.error || 'Failed to place order. Please try again.', 'error')
