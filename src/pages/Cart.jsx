@@ -25,6 +25,7 @@ import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
+import SEO from '../components/shared/SEO'
 
 export default function Cart() {
   const { isAuthenticated, user } = useAuthStore()
@@ -231,6 +232,11 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO 
+        title="Your Shopping Cart"
+        description="Review your selected home-cooked meals, adjust portions, choose customized options, and proceed to checkout for secure delivery in Karachi."
+        keywords="home tiffin cart, shopping cart food karachi, meal checkout karachi"
+      />
       <Navbar />
 
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-10">

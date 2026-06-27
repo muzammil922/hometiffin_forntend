@@ -33,8 +33,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo left */}
         <Link to="/" className="flex items-center gap-2 cursor-pointer">
-          <span className="text-2xl font-black tracking-tight text-primary flex items-center gap-2">
-            <AnimatedLogo className="h-8" />
+          <span className="text-2xl md:text-3xl font-black tracking-tight text-primary flex items-center gap-2">
+            <AnimatedLogo className="h-10 md:h-12" />
             Home Tiffin
           </span>
         </Link>

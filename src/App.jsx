@@ -36,15 +36,15 @@ export default function App() {
   const [fadeOut, setFadeOut] = useState(false)
 
   useEffect(() => {
-    // Start fading out after 2 seconds (when loader completes one full fill cycle)
+    // Start fading out after 2.5 seconds (allowing the animation to fully play and hold)
     const fadeTimer = setTimeout(() => {
       setFadeOut(true)
-    }, 2000)
+    }, 2500)
 
     // Completely unmount splash container after the 500ms transition ends
     const unmountTimer = setTimeout(() => {
       setAppLoading(false)
-    }, 2500)
+    }, 3000)
 
     return () => {
       clearTimeout(fadeTimer)

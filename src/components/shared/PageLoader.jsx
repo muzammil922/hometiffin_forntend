@@ -5,8 +5,8 @@ export default function PageLoader() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF8E7] gap-8">
       <div className="flex flex-col items-center gap-6">
-        {/* Large Logo with a faster 1.5s switch interval */}
-        <AnimatedLogo className="h-28" interval={1500} />
+        {/* Large Logo with a 2.5s switch interval */}
+        <AnimatedLogo className="h-28" interval={2500} />
         
         <div className="flex flex-col items-center gap-3">
           {/* Loading bar container */}
@@ -15,7 +15,7 @@ export default function PageLoader() {
             <div 
               className="h-full bg-primary rounded-full"
               style={{
-                animation: 'loadingFill 2s infinite cubic-bezier(0.25, 1, 0.5, 1)'
+                animation: 'loadingFill 2.2s forwards cubic-bezier(0.25, 1, 0.5, 1)'
               }}
             />
           </div>
@@ -29,15 +29,9 @@ export default function PageLoader() {
         @keyframes loadingFill {
           0% {
             width: 0%;
-            opacity: 0.8;
-          }
-          80% {
-            width: 100%;
-            opacity: 1;
           }
           100% {
             width: 100%;
-            opacity: 0;
           }
         }
       `}</style>

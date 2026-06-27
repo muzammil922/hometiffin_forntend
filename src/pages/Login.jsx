@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import api from '../services/api'
 import AnimatedLogo from '../components/shared/AnimatedLogo'
+import SEO from '../components/shared/SEO'
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
@@ -144,6 +145,11 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[#F4F6F5] bg-gradient-to-tr from-accent/20 via-background to-emerald-50/30 flex items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+      <SEO 
+        title="Login to Your Account"
+        description="Log in to your Home Tiffin account to manage your daily meal subscriptions, track your rider, and see order histories."
+        keywords="home tiffin login, sign in tiffin karachi"
+      />
       
       <style>{`
         @keyframes float {

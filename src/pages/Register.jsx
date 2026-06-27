@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import api from '../services/api'
 import AnimatedLogo from '../components/shared/AnimatedLogo'
+import SEO from '../components/shared/SEO'
 
 // Zod Registration Schema
 const registerSchema = z.object({
@@ -63,6 +64,11 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-[#F4F6F5] bg-gradient-to-tr from-accent/20 via-background to-emerald-50/30 flex items-center justify-center p-4 sm:p-6 md:p-8 relative overflow-hidden">
+      <SEO 
+        title="Create an Account"
+        description="Sign up for a Home Tiffin account to start ordering fresh home-cooked meals and subscribing weekly or monthly in Karachi."
+        keywords="home tiffin register, create account tiffin karachi"
+      />
       
       <style>{`
         @keyframes float {

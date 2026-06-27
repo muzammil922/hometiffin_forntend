@@ -13,6 +13,7 @@ import { flyToCart } from '../services/flyToCart'
 import { Search, Sliders, ShoppingCart, Check, Scale, CupSoda, Cake, Salad, Clock, X } from 'lucide-react'
 import { DynamicLucideIcon } from '../utils/lucideIconMap'
 import { motion, AnimatePresence } from 'framer-motion'
+import SEO from '../components/shared/SEO'
 
 const renderIcon = (iconName) => (
   <DynamicLucideIcon name={iconName} className="w-3.5 h-3.5" />
@@ -295,6 +296,11 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Weekly Meal Menu & Subscription Plans"
+        description="Explore our daily rotation of fresh home-cooked beef biryani, chicken karahi, brown diet lentils, sweet kheer, and tiffin burgers. Order a single meal or subscribe weekly!"
+        keywords="home tiffin menu, beef biryani karachi, chicken karahi delivery, tiffin dishes list, daily food menu karachi, monthly tiffin price"
+      />
       <Navbar />
 
       {/* Mobile Top Campaign Bar (One Line Alert Bar, Transitions Slide-by-Slide) */}

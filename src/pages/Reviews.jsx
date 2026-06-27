@@ -8,6 +8,7 @@ import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { useReviewStore } from '../store/reviewStore'
 import { useToastStore } from '../store/toastStore'
+import SEO from '../components/shared/SEO'
 
 export default function Reviews() {
   const { testimonials, addReview, fetchReviews, initSocket, disconnectSocket } = useReviewStore()
@@ -68,6 +69,11 @@ export default function Reviews() {
 
   return (
     <div className="min-h-screen bg-background/20 flex flex-col font-sans">
+      <SEO 
+        title="Customer Reviews & Testimonials"
+        description="See what hundreds of families, students, and professionals in Karachi say about Home Tiffin's healthy home-cooked meal plans, daily delivery, and subscription service."
+        keywords="home tiffin reviews, food delivery testimonials karachi, healthy meal reviews karachi, student tiffin karachi reviews"
+      />
       <Navbar />
 
       <main className="flex-grow pt-24 pb-16 px-6 max-w-7xl mx-auto w-full">

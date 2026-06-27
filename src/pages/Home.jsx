@@ -14,6 +14,7 @@ import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
 import PWAInstallBanner from '../components/shared/PWAInstallBanner'
+import SEO from '../components/shared/SEO'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import { useReviewStore } from '../store/reviewStore'
@@ -264,6 +265,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO 
+        title="Karachi's Premium Home-Cooked Food Delivery"
+        description="Karachi's best daily home-cooked meal and tiffin service. Order fresh, healthy, and hygienic lunches and dinners delivered straight to your door or office."
+        keywords="tiffin service karachi, home cooked food karachi, daily meal delivery karachi, monthly tiffin service karachi, ghar ka khana karachi, best lunch delivery karachi, healthy food delivery karachi"
+      />
       <Navbar />
 
       {/* PWA banner floating top */}
