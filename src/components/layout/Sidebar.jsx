@@ -64,16 +64,22 @@ export default function Sidebar({ children }) {
         { name: 'GPS Tracker', path: '/dashboard/tracking', icon: MapPin },
       ]
     } else {
-      return [
+      const hasActiveSub = user?.subscriptions?.some(s => s.status === 'active')
+      const items = [
         { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
         { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
         { name: 'Subscription', path: '/dashboard/subscription', icon: CalendarDays },
-        { name: 'Weekly Menu', path: '/dashboard/weekly-menu', icon: ChefHat },
+      ]
+      if (hasActiveSub) {
+        items.push({ name: 'Weekly Menu', path: '/dashboard/weekly-menu', icon: ChefHat })
+      }
+      items.push(
         { name: 'Payments', path: '/dashboard/payments', icon: CreditCard },
         { name: 'Live Tracking', path: '/dashboard/tracking', icon: MapPin },
         { name: 'Notifications', path: '/dashboard/notifications', icon: Bell },
         { name: 'Complaints & Refunds', path: '/dashboard/complaints', icon: AlertCircle },
-      ]
+      )
+      return items
     }
   }
 

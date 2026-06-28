@@ -144,7 +144,6 @@ export default function AdminOverview() {
           </Button>
         </div>
       </div>
-
       {/* Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {/* Card 1: Total Orders */}
@@ -339,7 +338,7 @@ export default function AdminOverview() {
         isOpen={isMenuModalOpen}
         onClose={() => setIsMenuModalOpen(false)}
         title={`Weekly Menu Configuration (Week ${weeklyMenu?.weekNumber || '—'})`}
-        className="max-w-2xl"
+        className="max-w-5xl md:max-w-6xl w-full"
       >
         {menuLoading ? (
           <div className="flex justify-center items-center py-12">
@@ -379,53 +378,53 @@ export default function AdminOverview() {
                 <h1 className="text-2xl font-black text-emerald-600">HOME TIFFIN</h1>
                 <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">Weekly Subscriber Meal Menu — Week {weeklyMenu?.weekNumber || 1}</p>
               </div>
-
               {weeklyMenu ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Breakfast Column */}
-                  <div className="border border-emerald-100/60 p-4 rounded-2xl bg-gray-50/20">
-                    <h5 className="font-black text-sm text-emerald-700 pb-2 border-b border-emerald-50 flex items-center gap-1.5">
-                      🍳 Breakfast Slot (7am - 11am)
-                    </h5>
-                    <div className="flex flex-col gap-3 mt-3">
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
-                        <div key={day} className="text-xs">
-                          <span className="font-extrabold text-gray-400 block uppercase text-[10px] tracking-wider">{day}</span>
-                          <span className="font-bold text-text-dark mt-0.5 block">{weeklyMenu.breakfast[idx]?.name || 'Chef\'s Choice'}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => {
+                    const breakfastMeal = weeklyMenu.breakfast[idx] || { name: 'Chef\'s Choice' }
+                    const lunchMeal = weeklyMenu.lunch[idx] || { name: 'Chef\'s Choice' }
+                    const dinnerMeal = weeklyMenu.dinner[idx] || { name: 'Chef\'s Choice' }
 
-                  {/* Lunch Column */}
-                  <div className="border border-emerald-100/60 p-4 rounded-2xl bg-gray-50/20">
-                    <h5 className="font-black text-sm text-emerald-700 pb-2 border-b border-emerald-50 flex items-center gap-1.5">
-                      ☀️ Lunch Slot (12pm - 3pm)
-                    </h5>
-                    <div className="flex flex-col gap-3 mt-3">
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
-                        <div key={day} className="text-xs">
-                          <span className="font-extrabold text-gray-400 block uppercase text-[10px] tracking-wider">{day}</span>
-                          <span className="font-bold text-text-dark mt-0.5 block">{weeklyMenu.lunch[idx]?.name || 'Chef\'s Choice'}</span>
+                    return (
+                      <div 
+                        key={day} 
+                        className="border-2 border-emerald-100 bg-white rounded-2xl p-4 shadow-sm flex flex-col gap-3 font-sans break-inside-avoid"
+                      >
+                        {/* Day Title highlighted */}
+                        <div className="bg-emerald-600 text-white font-black px-3.5 py-1 text-[11px] rounded-xl uppercase tracking-wider w-fit">
+                          {day}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                                                <div className="flex flex-col gap-3.5 mt-2">
+                          {/* Breakfast */}
+                          <div className="border border-emerald-100 bg-emerald-50/5 rounded-xl p-3 flex flex-col gap-1">
+                            <span className="font-extrabold text-emerald-800 block text-[9px] uppercase tracking-wider">🍳 Breakfast (7am - 11am)</span>
+                            <span className="font-black text-text-dark text-xs mt-0.5 block">{breakfastMeal.name}</span>
+                            {breakfastMeal.description && (
+                              <span className="text-[10px] text-gray-500 italic mt-0.5 block leading-relaxed">{breakfastMeal.description}</span>
+                            )}
+                          </div>
+                          
+                          {/* Lunch */}
+                          <div className="border border-emerald-100 bg-emerald-50/5 rounded-xl p-3 flex flex-col gap-1">
+                            <span className="font-extrabold text-emerald-800 block text-[9px] uppercase tracking-wider">☀️ Lunch (12pm - 3pm)</span>
+                            <span className="font-black text-text-dark text-xs mt-0.5 block">{lunchMeal.name}</span>
+                            {lunchMeal.description && (
+                              <span className="text-[10px] text-gray-500 italic mt-0.5 block leading-relaxed">{lunchMeal.description}</span>
+                            )}
+                          </div>
 
-                  {/* Dinner Column */}
-                  <div className="border border-emerald-100/60 p-4 rounded-2xl bg-gray-50/20">
-                    <h5 className="font-black text-sm text-emerald-700 pb-2 border-b border-emerald-50 flex items-center gap-1.5">
-                      🌙 Dinner Slot (7pm - 10pm)
-                    </h5>
-                    <div className="flex flex-col gap-3 mt-3">
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
-                        <div key={day} className="text-xs">
-                          <span className="font-extrabold text-gray-400 block uppercase text-[10px] tracking-wider">{day}</span>
-                          <span className="font-bold text-text-dark mt-0.5 block">{weeklyMenu.dinner[idx]?.name || 'Chef\'s Choice'}</span>
+                          {/* Dinner */}
+                          <div className="border border-emerald-100 bg-emerald-50/5 rounded-xl p-3 flex flex-col gap-1">
+                            <span className="font-extrabold text-emerald-800 block text-[9px] uppercase tracking-wider">🌙 Dinner (7pm - 10pm)</span>
+                            <span className="font-black text-text-dark text-xs mt-0.5 block">{dinnerMeal.name}</span>
+                            {dinnerMeal.description && (
+                              <span className="text-[10px] text-gray-500 italic mt-0.5 block leading-relaxed">{dinnerMeal.description}</span>
+                            )}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-400 text-center py-6">No menu details loaded.</p>
@@ -437,6 +436,10 @@ export default function AdminOverview() {
 
       {/* Print Specific CSS Styles */}
       <style>{`
+        @page {
+          size: A4 portrait;
+          margin: 15mm;
+        }
         @media print {
           body * {
             visibility: hidden !important;
@@ -449,15 +452,24 @@ export default function AdminOverview() {
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            padding: 20px !important;
             background: white !important;
-            color: black !important;
+            color: #2d3748 !important;
+            padding: 0 !important;
+            margin: 0 !important;
           }
-          /* Ensure grids render nicely on print */
+          /* Ensure layout grids render nicely in 3 columns for print */
           #print-section .grid {
             display: grid !important;
             grid-template-columns: repeat(3, 1fr) !important;
-            gap: 20px !important;
+            gap: 15px !important;
+          }
+          /* Hide print preview controls */
+          .bg-emerald-50\\/30 {
+            display: none !important;
+          }
+          /* Printable banner styled beautifully */
+          .print\\:block {
+            display: block !important;
           }
         }
       `}</style>

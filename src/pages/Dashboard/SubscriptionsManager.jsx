@@ -104,8 +104,9 @@ export default function SubscriptionsManager() {
   const [scheduleActiveTab, setScheduleActiveTab] = useState('weekly')
   const [monthlySubTab, setMonthlySubTab] = useState(1) // 1 for 1-10, 2 for 11-20, 3 for 21-30
   const [scheduleData, setScheduleData] = useState({}) // { [planId]: [{ dayIndex, mealName, mealId }] }
+  const [weeklyMenuData, setWeeklyMenuData] = useState({ breakfast: [], lunch: [], dinner: [] })
   const [savingSchedule, setSavingSchedule] = useState({})
-  const [activeDropdown, setActiveDropdown] = useState(null) // { planId, dayIndex }
+  const [activeDropdown, setActiveDropdown] = useState(null) // { planId, dayIndex, category }
 
   const DEFAULT_LIMIT = 20
   const [limit, setLimit] = useState(DEFAULT_LIMIT)
@@ -191,14 +192,32 @@ export default function SubscriptionsManager() {
 
   const getInitializedSchedule = (plan) => {
     if (!plan) return []
-    const totalDays = plan.totalMeals || (plan.planType === 'weekly' ? 7 : 30)
+    const totalDays = plan.planType === 'weekly' ? 6 : 30
     const list = []
     for (let i = 1; i <= totalDays; i++) {
       const existing = plan.mealSchedules?.find(s => s.dayIndex === i)
+      
+      let breakfast = { name: '', description: '' }
+      let lunch = { name: '', description: '' }
+      let dinner = { name: '', description: '' }
+
+      if (existing) {
+        try {
+          const parsed = JSON.parse(existing.mealName)
+          breakfast = parsed.breakfast || breakfast
+          lunch = parsed.lunch || lunch
+          dinner = parsed.dinner || dinner
+        } catch (e) {
+          // Fallback if legacy text
+          lunch = { name: existing.mealName, description: '' }
+        }
+      }
+
       list.push({
         dayIndex: i,
-        mealName: existing ? existing.mealName : '',
-        mealId: existing ? existing.mealId : null
+        breakfast,
+        lunch,
+        dinner
       })
     }
     return list
@@ -211,6 +230,41 @@ export default function SubscriptionsManager() {
     fetchMeals()
   }, [])
 
+  const fetchWeeklyMenu = async (weeklyPlanId) => {
+    try {
+      const res = await api.get('/meals/weekly-menu')
+      if (res.data && weeklyPlanId) {
+        const list = []
+        const daysCount = 6
+        for (let i = 1; i <= daysCount; i++) {
+          const idx = i - 1
+          const breakfast = res.data.breakfast?.[idx] || { name: '', description: '' }
+          const lunch = res.data.lunch?.[idx] || { name: '', description: '' }
+          const dinner = res.data.dinner?.[idx] || { name: '', description: '' }
+          
+          list.push({
+            dayIndex: i,
+            breakfast: { 
+              name: breakfast.name || '', 
+              description: breakfast.description || '' 
+            },
+            lunch: { 
+              name: lunch.name || '', 
+              description: lunch.description || '' 
+            },
+            dinner: { 
+              name: dinner.name || '', 
+              description: dinner.description || '' 
+            }
+          })
+        }
+        setScheduleData(prev => ({ ...prev, [weeklyPlanId]: list }))
+      }
+    } catch (err) {
+      console.error('Failed to load weekly menu:', err)
+    }
+  }
+
   useEffect(() => {
     if (plans.length > 0) {
       const initialSchedules = {}
@@ -218,17 +272,32 @@ export default function SubscriptionsManager() {
         initialSchedules[plan.id] = getInitializedSchedule(plan)
       })
       setScheduleData(initialSchedules)
+
+      const weeklyPlan = plans.find(p => p.planType === 'weekly')
+      if (weeklyPlan) {
+        fetchWeeklyMenu(weeklyPlan.id)
+      }
     }
   }, [plans])
 
-  const handleScheduleMealChange = (planId, dayIndex, mealName, mealId = null) => {
+  const handleScheduleMealSlotChange = (planId, dayIndex, category, field, value) => {
     setScheduleData(prev => {
       const currentPlanSchedule = [...(prev[planId] || [])]
       const index = currentPlanSchedule.findIndex(item => item.dayIndex === dayIndex)
+      
+      const newDayObj = index > -1 
+        ? { ...currentPlanSchedule[index] } 
+        : { dayIndex, breakfast: { name: '', description: '' }, lunch: { name: '', description: '' }, dinner: { name: '', description: '' } }
+      
+      newDayObj[category] = {
+        ...newDayObj[category],
+        [field]: value
+      }
+
       if (index > -1) {
-        currentPlanSchedule[index] = { dayIndex, mealName, mealId }
+        currentPlanSchedule[index] = newDayObj
       } else {
-        currentPlanSchedule.push({ dayIndex, mealName, mealId })
+        currentPlanSchedule.push(newDayObj)
       }
       return { ...prev, [planId]: currentPlanSchedule }
     })
@@ -237,17 +306,55 @@ export default function SubscriptionsManager() {
   const handleSaveSchedule = async (planId) => {
     try {
       setSavingSchedule(prev => ({ ...prev, [planId]: true }))
+      
+      const currentPlan = plans.find(p => p.id === planId)
+      if (!currentPlan) return;
+
       const schedules = scheduleData[planId] || []
       
+      // Serialize Breakfast, Lunch, Dinner details into mealName in PlanMealSchedule
       const formattedSchedules = schedules.map(item => ({
         dayIndex: item.dayIndex,
-        mealName: item.mealName.trim() || 'Chef\'s Choice',
-        mealId: item.mealId
+        mealName: JSON.stringify({
+          breakfast: { 
+            name: item.breakfast?.name?.trim() || 'Chef\'s Choice', 
+            description: item.breakfast?.description?.trim() || '' 
+          },
+          lunch: { 
+            name: item.lunch?.name?.trim() || 'Chef\'s Choice', 
+            description: item.lunch?.description?.trim() || '' 
+          },
+          dinner: { 
+            name: item.dinner?.name?.trim() || 'Chef\'s Choice', 
+            description: item.dinner?.description?.trim() || '' 
+          }
+        }),
+        mealId: null
       }))
 
       await api.put(`/admin/plans/${planId}/schedule`, { schedules: formattedSchedules })
+
+      // If it's the weekly plan, also update the weeklyMenu.json config file
+      if (currentPlan.planType === 'weekly') {
+        await api.put('/admin/weekly-menu', {
+          breakfast: schedules.map(item => ({
+            name: item.breakfast?.name?.trim() || 'Chef\'s Choice',
+            description: item.breakfast?.description?.trim() || ''
+          })),
+          lunch: schedules.map(item => ({
+            name: item.lunch?.name?.trim() || 'Chef\'s Choice',
+            description: item.lunch?.description?.trim() || ''
+          })),
+          dinner: schedules.map(item => ({
+            name: item.dinner?.name?.trim() || 'Chef\'s Choice',
+            description: item.dinner?.description?.trim() || ''
+          }))
+        })
+      }
+
       addToast('Meal schedule saved successfully!', 'success')
       fetchPlans() // Refresh plans to sync mealSchedules
+      fetchWeeklyMenu() // Sync state
     } catch (err) {
       console.error('Failed to save meal schedule:', err)
       addToast(err.response?.data?.error || 'Failed to save meal schedule.', 'error')
@@ -256,10 +363,22 @@ export default function SubscriptionsManager() {
     }
   }
 
+
   const handlePlanChange = (planId, field, value) => {
     setPlans(prevPlans => prevPlans.map(p => {
       if (p.id === planId) {
-        return { ...p, [field]: value }
+        const updated = { ...p, [field]: value }
+        
+        // Auto calculate Price if totalMeals or lunchPrice changes
+        if (field === 'totalMeals' || field === 'lunchPrice') {
+          const quota = Number(updated.totalMeals || 0)
+          const lPrice = Number(updated.lunchPrice || 0)
+          
+          if (p.planType !== 'company') {
+            updated.price = quota * lPrice
+          }
+        }
+        return updated
       }
       return p
     }))
@@ -388,7 +507,11 @@ export default function SubscriptionsManager() {
             lunch: editHasLunch,
             dinner: editHasDinner
           },
-          deliveryTime: editHasLunch ? 'lunch' : (editHasDinner ? 'dinner' : 'breakfast'),
+          deliveryTime: [
+            editHasBreakfast ? 'breakfast' : '',
+            editHasLunch ? 'lunch' : '',
+            editHasDinner ? 'dinner' : ''
+          ].filter(Boolean).join(','),
           customTimes: {
             breakfast: editHasBreakfast ? editAllocatedBreakfast : undefined,
             lunch: editHasLunch ? editAllocatedLunch : undefined,
@@ -1383,45 +1506,83 @@ export default function SubscriptionsManager() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredList.map((item) => {
-                        const isDropdownActive = activeDropdown && activeDropdown.planId === currentPlan.id && activeDropdown.dayIndex === item.dayIndex
-                        const matchingMeals = meals.filter(m =>
-                          m.name.toLowerCase().includes((item.mealName || '').toLowerCase())
-                        )
+                        const dayLabel = isWeekly 
+                          ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][item.dayIndex - 1] || `Day ${item.dayIndex}`
+                          : `Day ${item.dayIndex}`;
+
+                        const renderMealInput = (category, label, icon) => {
+                          const mealObj = item[category] || { name: '', description: '' };
+                          const isDropdownActive = activeDropdown && 
+                            activeDropdown.planId === currentPlan.id && 
+                            activeDropdown.dayIndex === item.dayIndex && 
+                            activeDropdown.category === category;
+                          
+                          const queryValue = mealObj.name || '';
+                          const matchingMeals = meals.filter(m =>
+                            m.name.toLowerCase().includes(queryValue.toLowerCase())
+                          );
+
+                          return (
+                            <div className="flex flex-col gap-1 text-left">
+                              <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider flex items-center gap-1">
+                                <span>{icon}</span> <span>{label}</span>
+                              </span>
+                              <div className="relative flex flex-col gap-1.5">
+                                {/* Meal Name Input */}
+                                <Input
+                                  type="text"
+                                  value={mealObj.name}
+                                  onChange={(e) => handleScheduleMealSlotChange(currentPlan.id, item.dayIndex, category, 'name', e.target.value)}
+                                  onFocus={() => setActiveDropdown({ planId: currentPlan.id, dayIndex: item.dayIndex, category })}
+                                  onBlur={() => setTimeout(() => setActiveDropdown(null), 250)}
+                                  placeholder={`Select or type ${label} item...`}
+                                  className="w-full text-xs font-bold py-2 border-emerald-100 bg-[#F9FBF9]/30 focus:bg-white rounded-xl"
+                                />
+                                {/* Meal Description Input */}
+                                <Input
+                                  type="text"
+                                  value={mealObj.description}
+                                  onChange={(e) => handleScheduleMealSlotChange(currentPlan.id, item.dayIndex, category, 'description', e.target.value)}
+                                  placeholder="Description (optional - auto if blank)..."
+                                  className="w-full text-[10px] py-1 border-gray-100 bg-gray-50/20 text-gray-500 rounded-lg placeholder-gray-350"
+                                />
+
+                                {isDropdownActive && matchingMeals.length > 0 && (
+                                  <div className="absolute z-[99] left-0 right-0 top-10 max-h-48 overflow-y-auto bg-white border border-emerald-100 rounded-xl shadow-lg">
+                                    {matchingMeals.map(m => (
+                                      <div
+                                        key={m.id}
+                                        onMouseDown={() => {
+                                          handleScheduleMealSlotChange(currentPlan.id, item.dayIndex, category, 'name', m.name);
+                                          handleScheduleMealSlotChange(currentPlan.id, item.dayIndex, category, 'description', m.description);
+                                        }}
+                                        className="px-3.5 py-2 text-[11px] font-bold hover:bg-emerald-50 text-text-dark cursor-pointer flex justify-between items-center transition-colors border-b border-emerald-50/50 last:border-0"
+                                      >
+                                        <span>{m.name}</span>
+                                        <Badge variant="primary" className="text-[9px] px-1.5 py-0">
+                                          {m.category}
+                                        </Badge>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        };
 
                         return (
-                          <div key={item.dayIndex} className="relative flex flex-col gap-1.5 p-4 rounded-2xl border border-emerald-100 bg-white">
-                            <span className="text-[10px] text-primary font-black uppercase tracking-wider">Day {item.dayIndex}</span>
-                            <div className="relative">
-                              <Input
-                                type="text"
-                                value={item.mealName}
-                                onChange={(e) => handleScheduleMealChange(currentPlan.id, item.dayIndex, e.target.value, null)}
-                                onFocus={() => setActiveDropdown({ planId: currentPlan.id, dayIndex: item.dayIndex })}
-                                onBlur={() => setTimeout(() => setActiveDropdown(null), 200)}
-                                placeholder="Type custom meal or select catalog..."
-                                className="w-full text-xs font-bold py-2"
-                              />
-                              {isDropdownActive && matchingMeals.length > 0 && (
-                                <div className="absolute z-[99] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-emerald-100 rounded-xl shadow-lg">
-                                  {matchingMeals.map(m => (
-                                    <div
-                                      key={m.id}
-                                      onMouseDown={() => handleScheduleMealChange(currentPlan.id, item.dayIndex, m.name, m.id)}
-                                      className="px-3.5 py-2 text-[11px] font-bold hover:bg-emerald-50 text-text-dark cursor-pointer flex justify-between items-center transition-colors border-b border-emerald-50/50 last:border-0"
-                                    >
-                                      <span>{m.name}</span>
-                                      <Badge variant="primary" className="text-[9px] px-1.5 py-0">
-                                        {m.category}
-                                      </Badge>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                          <div key={item.dayIndex} className="relative flex flex-col gap-3.5 p-5 rounded-3xl border border-emerald-100/70 bg-[#F9FBF9]/20 shadow-sm hover:shadow-md transition-all">
+                            <span className="text-sm font-black text-emerald-800 uppercase tracking-tight">{dayLabel}</span>
+                            <div className="flex flex-col gap-3.5 mt-1">
+                              {renderMealInput('breakfast', 'Breakfast', '🍳')}
+                              {renderMealInput('lunch', 'Lunch', '☀️')}
+                              {renderMealInput('dinner', 'Dinner', '🌙')}
                             </div>
                           </div>
-                        )
+                        );
                       })}
                     </div>
 

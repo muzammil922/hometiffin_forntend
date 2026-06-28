@@ -6,7 +6,7 @@
  * @returns {Promise<string>} The secure URL of the uploaded image
  */
 export const uploadImageToCloudinary = async (file) => {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dphw8szre';
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'diwbfbcju';
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'hometiffin_preset';
 
   const formData = new FormData();

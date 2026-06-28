@@ -271,7 +271,11 @@ export default function Subscription() {
             lunch: hasLunch,
             dinner: hasDinner
           },
-          deliveryTime: hasLunch ? 'lunch' : (hasDinner ? 'dinner' : 'breakfast'),
+          deliveryTime: [
+            hasBreakfast ? 'breakfast' : '',
+            hasLunch ? 'lunch' : '',
+            hasDinner ? 'dinner' : ''
+          ].filter(Boolean).join(','),
           customTimes: {
             breakfast: hasBreakfast ? breakfastPrefTime : undefined,
             lunch: hasLunch ? lunchPrefTime : undefined,
@@ -456,36 +460,19 @@ export default function Subscription() {
     
     // Dynamic price based on slot selections
     const rawPrice = selectedPlanConfig.price || (purchasePlan === 'weekly' ? 1800 : 7000)
-    let breakfastPrice = 0
-    let lunchPrice = 0
-    let dinnerPrice = 0
+
+        let breakfastPrice = Number(selectedPlanConfig.breakfastPrice || (purchasePlan === 'weekly' ? 200 : 200))
+    let lunchPrice = Number(selectedPlanConfig.lunchPrice || (purchasePlan === 'weekly' ? 300 : 300))
+    let dinnerPrice = Number(selectedPlanConfig.dinnerPrice || (purchasePlan === 'weekly' ? 300 : 300))
     let basePricePerWorker = 0
 
-    if (isCompany) {
-      // Company plan: Admin configures price PER SINGLE MEAL
-      breakfastPrice = selectedPlanConfig.breakfastPrice || Math.round(rawPrice * 0.8) // fallback if unconfigured
-      lunchPrice = selectedPlanConfig.lunchPrice || rawPrice
-      dinnerPrice = selectedPlanConfig.dinnerPrice || rawPrice
-      
-      // Calculate single meal base cost per worker
-      let singleMealCost = 0
-      if (hasBreakfast) singleMealCost += breakfastPrice
-      if (hasLunch) singleMealCost += lunchPrice
-      if (hasDinner) singleMealCost += dinnerPrice
-      
-      // Multiply by totalMeals (e.g. 24) to get base price per worker for the entire plan duration
-      basePricePerWorker = singleMealCost * selectedPlanConfig.totalMeals
-    } else {
-      // Individual weekly/monthly plans: Admin configures FLAT price for the entire plan
-      breakfastPrice = selectedPlanConfig.breakfastPrice || Math.round(rawPrice * 0.25)
-      lunchPrice = selectedPlanConfig.lunchPrice || Math.round(rawPrice * 0.40)
-      dinnerPrice = selectedPlanConfig.dinnerPrice || Math.round(rawPrice * 0.40)
-      
-      if (hasBreakfast) basePricePerWorker += breakfastPrice
-      if (hasLunch) basePricePerWorker += lunchPrice
-      if (hasDinner) basePricePerWorker += dinnerPrice
-    }
+    // Single meal prices sum for selected slots
+    let singleMealCost = 0
+    if (hasBreakfast) singleMealCost += breakfastPrice
+    if (hasLunch) singleMealCost += lunchPrice
+    if (hasDinner) singleMealCost += dinnerPrice
     
+    basePricePerWorker = singleMealCost * Number(selectedPlanConfig.totalMeals || (purchasePlan === 'weekly' ? 6 : 24))
     const discountAmount = selectedPlanConfig.discount || 0
     const totalWorkers = isCompany ? (parseInt(workerCount, 10) || 1) : 1
     const subtotal = basePricePerWorker * totalWorkers
@@ -1378,6 +1365,7 @@ export default function Subscription() {
   const matchingPlan = plans.find(p => p.planType === subscription.planType)
   const planTotalMeals = matchingPlan ? matchingPlan.totalMeals : (subscription.planType === 'weekly' ? 6 : 24)
   const totalMeals = subscription.totalMealsInPlan ?? (planTotalMeals * (subscription.workerCount ?? 1))
+
   const usedMeals = subscription.mealsUsed
     ?? (Math.max(0, planTotalMeals - subscription.mealsRemaining) * (subscription.workerCount ?? 1))
   const progressPercent = totalMeals > 0 ? Math.round((usedMeals / totalMeals) * 100) : 0
@@ -1386,8 +1374,19 @@ export default function Subscription() {
   const getMealNameForDay = (dayIndex) => {
     if (!matchingPlan || !matchingPlan.mealSchedules) return 'Chef\'s Choice'
     const schedule = matchingPlan.mealSchedules.find(s => s.dayIndex === dayIndex)
-    return schedule ? schedule.mealName : 'Chef\'s Choice'
+    if (!schedule) return 'Chef\'s Choice'
+    try {
+      const parsed = JSON.parse(schedule.mealName)
+      const parts = []
+      if (parsed.breakfast?.name) parts.push(`Breakfast: ${parsed.breakfast.name}`)
+      if (parsed.lunch?.name) parts.push(`Lunch: ${parsed.lunch.name}`)
+      if (parsed.dinner?.name) parts.push(`Dinner: ${parsed.dinner.name}`)
+      return parts.length > 0 ? parts.join(' | ') : 'Chef\'s Choice'
+    } catch (e) {
+      return schedule.mealName || 'Chef\'s Choice'
+    }
   }
+
   const daysPerWeek = 6
   const totalWeeks = Math.ceil(totalMeals / daysPerWeek)
   const currentDay = usedMeals + 1

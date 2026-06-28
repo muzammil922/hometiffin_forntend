@@ -251,40 +251,222 @@ export default function Payments() {
     }
   }
 
+
+
+
   const handleDownloadInvoice = (order) => {
-    addToast(`Downloading Invoice Receipt ${order.orderNumber}...`, 'info')
+    addToast(`Preparing Invoice Receipt ${order.orderNumber}...`, 'info')
     const itemsListHtml = Array.isArray(order.items)
       ? order.items.map(i => `
-          <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px 0;">${i.name} (Qty: ${i.quantity})</td>
-            <td style="padding: 10px 0; text-align: right;">PKR ${i.price * i.quantity}</td>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 12px 8px; font-weight: 500;">${i.name}</td>
+            <td style="padding: 12px 8px; text-align: center;">${i.quantity}</td>
+            <td style="padding: 12px 8px; text-align: right;">PKR ${i.price}</td>
+            <td style="padding: 12px 8px; text-align: right; font-weight: bold; color: #0f5132;">PKR ${i.price * i.quantity}</td>
           </tr>
         `).join('')
       : ''
     const printWindow = window.open('', '_blank')
     printWindow.document.write(`
       <html>
-        <head><title>Invoice - ${order.orderNumber}</title>
-          <style>body{font-family:sans-serif;padding:40px;color:#333;}.receipt{max-width:600px;margin:auto;border:1px solid #eee;padding:30px;border-radius:10px;}.header{text-align:center;border-bottom:2px solid #065F46;padding-bottom:20px;}.details{margin:30px 0;line-height:1.6;font-size:14px;}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px;}.total{font-size:20px;font-weight:bold;color:#065F46;margin-top:30px;text-align:right;}</style>
+        <head>
+          <title>Invoice - ${order.orderNumber}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 20mm;
+            }
+            body {
+              font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              color: #2d3748;
+              background-color: #ffffff;
+              margin: 0;
+              padding: 0;
+              line-height: 1.5;
+            }
+            .invoice-box {
+              max-width: 800px;
+              margin: auto;
+              padding: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+              color: white;
+              padding: 30px;
+              border-radius: 16px;
+              margin-bottom: 30px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .logo-title {
+              font-size: 28px;
+              font-weight: 900;
+              letter-spacing: -0.5px;
+              margin: 0;
+            }
+            .logo-sub {
+              font-size: 12px;
+              color: #d1e7dd;
+              margin: 4px 0 0 0;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .invoice-label {
+              text-align: right;
+            }
+            .invoice-label h1 {
+              margin: 0;
+              font-size: 32px;
+              font-weight: 900;
+              color: #ffc107;
+            }
+            .invoice-label p {
+              margin: 5px 0 0 0;
+              font-size: 13px;
+              color: #e8f5e9;
+              font-weight: bold;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 40px;
+              margin-bottom: 40px;
+              background: #f8f9fa;
+              padding: 20px;
+              border-radius: 16px;
+              border: 1px solid #e9ecef;
+            }
+            .info-col h3 {
+              margin: 0 0 10px 0;
+              font-size: 14px;
+              color: #198754;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-weight: 800;
+            }
+            .info-col p {
+              margin: 5px 0;
+              font-size: 14px;
+              color: #495057;
+            }
+            .info-col strong {
+              color: #212529;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+            }
+            th {
+              background-color: #f8f9fa;
+              color: #198754;
+              font-weight: 700;
+              text-transform: uppercase;
+              font-size: 12px;
+              letter-spacing: 0.5px;
+              padding: 12px 8px;
+              border-bottom: 2px solid #dee2e6;
+            }
+            .totals-table {
+              width: 300px;
+              margin-left: auto;
+              margin-bottom: 0;
+            }
+            .totals-table td {
+              padding: 8px;
+              font-size: 14px;
+            }
+            .grand-total {
+              background-color: #d1e7dd;
+              color: #0f5132;
+              font-weight: 850;
+              font-size: 18px;
+              border-radius: 8px;
+            }
+            .footer {
+              margin-top: 50px;
+              border-top: 1px solid #dee2e6;
+              padding-top: 20px;
+              text-align: center;
+              font-size: 12px;
+              color: #6c757d;
+              font-weight: 600;
+            }
+          </style>
         </head>
         <body>
-          <div class="receipt">
-            <div class="header"><h2 style="margin:0;color:#065F46;">HOME TIFFIN INVOICE</h2><p style="margin:5px 0 0 0;font-size:12px;color:#666;">Ghar ka khana, aapke darwaze tak</p></div>
-            <div class="details">
-              <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Customer Name:</strong> ${order.customerName}</p>
-              <p><strong>Date:</strong> ${formatDateTime(order.createdAt)}</p>
-              <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
-              <p><strong>Payment Status:</strong> ${order.paymentStatus.toUpperCase()}</p>
+          <div class="invoice-box">
+            <div class="header-banner">
+              <div>
+                <h2 class="logo-title">HOME TIFFIN</h2>
+                <p class="logo-sub">Ghar Ka Khana, Aapke Darwaze Tak</p>
+              </div>
+              <div class="invoice-label">
+                <h1>INVOICE</h1>
+                <p># ${order.orderNumber}</p>
+              </div>
             </div>
-            <h4 style="border-bottom:1px solid #065F46;padding-bottom:5px;margin-bottom:10px;">ORDER ITEMS</h4>
-            <table>${itemsListHtml}
-              <tr><td style="padding:10px 0;font-weight:bold;">Subtotal</td><td style="padding:10px 0;text-align:right;font-weight:bold;">PKR ${order.billingSubtotal}</td></tr>
-              <tr><td style="padding:5px 0;">Delivery Fee</td><td style="padding:5px 0;text-align:right;">PKR ${order.billingDeliveryFee}</td></tr>
-              <tr><td style="padding:5px 0;">GST Tax (5%)</td><td style="padding:5px 0;text-align:right;">PKR ${order.billingTax}</td></tr>
+
+            <div class="info-grid">
+              <div class="info-col">
+                <h3>Billed To:</h3>
+                <p><strong>Customer Name:</strong> ${order.customerName}</p>
+                <p><strong>Phone:</strong> ${order.customerPhone || 'N/A'}</p>
+                <p><strong>Delivery Address:</strong> ${order.customerAddress || 'N/A'}</p>
+              </div>
+              <div class="info-col" style="text-align: right;">
+                <h3>Invoice details:</h3>
+                <p><strong>Date:</strong> ${formatDateTime(order.createdAt)}</p>
+                <p><strong>Payment Method:</strong> ${order.paymentMethod.toUpperCase()}</p>
+                <p><strong>Payment Status:</strong> ${order.paymentStatus.toUpperCase()}</p>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="text-align: left;">Meal / Item Description</th>
+                  <th style="text-align: center; width: 80px;">Qty</th>
+                  <th style="text-align: right; width: 120px;">Unit Price</th>
+                  <th style="text-align: right; width: 140px;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsListHtml}
+              </tbody>
             </table>
-            <div class="total">Total Paid: PKR ${order.billingTotal}</div>
+
+            <table class="totals-table">
+              <tr>
+                <td>Subtotal:</td>
+                <td style="text-align: right;">PKR ${order.billingSubtotal}</td>
+              </tr>
+              <tr>
+                <td>Delivery Fee:</td>
+                <td style="text-align: right;">PKR ${order.billingDeliveryFee}</td>
+              </tr>
+              <tr>
+                <td style="border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">GST (5%):</td>
+                <td style="text-align: right; border-bottom: 1px solid #dee2e6; padding-bottom: 10px;">PKR ${order.billingTax}</td>
+              </tr>
+              <tr class="grand-total">
+                <td style="padding: 12px; border-radius: 8px 0 0 8px;">Total Paid:</td>
+                <td style="text-align: right; padding: 12px; border-radius: 0 8px 8px 0;">PKR ${order.billingTotal}</td>
+              </tr>
+            </table>
+
+            <div class="footer">
+              <p>Thank you for ordering with Home Tiffin! Have a healthy, blessed day. 😊</p>
+              <p style="margin-top: 5px; font-size: 10px; color: #adb5bd;">Generated automatically by Home Tiffin Billing System.</p>
+            </div>
           </div>
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
         </body>
       </html>
     `)
