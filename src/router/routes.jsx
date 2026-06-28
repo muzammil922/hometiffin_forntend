@@ -32,6 +32,7 @@ const BannersManager = lazy(() => import('../pages/Dashboard/BannersManager'))
 const ComplaintsManager = lazy(() => import('../pages/Dashboard/ComplaintsManager'))
 const MyEarnings = lazy(() => import('../pages/Dashboard/MyEarnings'))
 const RiderPayments = lazy(() => import('../pages/Dashboard/RiderPayments'))
+const WeeklyMenu = lazy(() => import('../pages/Dashboard/WeeklyMenu'))
 
 function RoleRoute({ roles, element, requiredPermission }) {
   const { user } = useAuthStore()
@@ -111,6 +112,7 @@ export default function AppRoutes() {
           <Route path="overview" element={<DashboardOverviewSelector />} />
           <Route path="orders" element={<Orders />} />
           <Route path="subscription" element={<Subscription />} />
+          <Route path="weekly-menu" element={<WeeklyMenu />} />
           <Route path="tracking" element={<DashboardTrackingSelector />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="complaints" element={<RoleRoute roles={['admin', 'customer']} element={<ComplaintsManager />} />} />

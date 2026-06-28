@@ -68,6 +68,7 @@ export default function Sidebar({ children }) {
         { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
         { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
         { name: 'Subscription', path: '/dashboard/subscription', icon: CalendarDays },
+        { name: 'Weekly Menu', path: '/dashboard/weekly-menu', icon: ChefHat },
         { name: 'Payments', path: '/dashboard/payments', icon: CreditCard },
         { name: 'Live Tracking', path: '/dashboard/tracking', icon: MapPin },
         { name: 'Notifications', path: '/dashboard/notifications', icon: Bell },

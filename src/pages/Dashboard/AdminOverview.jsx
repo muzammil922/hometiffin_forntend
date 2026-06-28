@@ -4,14 +4,47 @@ import api from '../../services/api'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 import { useToastStore } from '../../store/toastStore'
-import { LayoutDashboard, Users, ShoppingBag, CreditCard, Clock, CheckCircle2, AlertCircle, Landmark } from 'lucide-react'
+import { LayoutDashboard, Users, ShoppingBag, CreditCard, Clock, CheckCircle2, AlertCircle, Landmark, Printer, RefreshCw } from 'lucide-react'
 
 export default function AdminOverview() {
   const { addToast } = useToastStore()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [expandedQuotas, setExpandedQuotas] = useState(false)
+  const [weeklyMenu, setWeeklyMenu] = useState(null)
+  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false)
+  const [isRotatingMenu, setIsRotatingMenu] = useState(false)
+  const [menuLoading, setMenuLoading] = useState(false)
+
+  const fetchWeeklyMenu = async () => {
+    try {
+      setMenuLoading(true)
+      const res = await api.get('/meals/weekly-menu')
+      setWeeklyMenu(res.data)
+    } catch (err) {
+      addToast('Failed to load weekly menu.', 'error')
+    } finally {
+      setMenuLoading(false)
+    }
+  }
+
+  const handleRotateMenu = async () => {
+    if (!window.confirm('Are you sure you want to rotate the weekly menu? This will shift the menu items to next week and send WhatsApp message updates to all active subscribers.')) {
+      return
+    }
+    try {
+      setIsRotatingMenu(true)
+      const res = await api.post('/admin/weekly-menu/rotate')
+      setWeeklyMenu(res.data.menu)
+      addToast('Weekly menu rotated successfully and broadcast sent!', 'success')
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to rotate weekly menu.', 'error')
+    } finally {
+      setIsRotatingMenu(false)
+    }
+  }
 
   const fetchStats = async () => {
     try {
@@ -84,9 +117,32 @@ export default function AdminOverview() {
 
   return (
     <div className="flex flex-col gap-8 text-left w-full pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-primary tracking-tight">Admin Console Overview</h1>
-        <p className="text-sm text-gray-500">Real-time stats and management summary for Home Tiffin operations.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-primary tracking-tight">Admin Console Overview</h1>
+          <p className="text-sm text-gray-500">Real-time stats and management summary for Home Tiffin operations.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            onClick={() => {
+              fetchWeeklyMenu()
+              setIsMenuModalOpen(true)
+            }}
+            variant="outline"
+            className="flex items-center gap-2 border-primary text-primary hover:bg-primary/5 rounded-2xl font-black text-sm shadow-sm transition-all"
+          >
+            <Printer className="w-4 h-4" /> Print Menu
+          </Button>
+          <Button
+            onClick={handleRotateMenu}
+            disabled={isRotatingMenu}
+            variant="outline"
+            className="flex items-center gap-2 border-amber-600 text-amber-650 hover:bg-amber-50 rounded-2xl font-black text-sm shadow-sm transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRotatingMenu ? 'animate-spin' : ''}`} />
+            {isRotatingMenu ? 'Rotating...' : 'Rotate Week'}
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards Grid */}
@@ -277,6 +333,134 @@ export default function AdminOverview() {
           </Card>
         </div>
       </div>
+
+      {/* Printable Weekly Menu Modal */}
+      <Modal
+        isOpen={isMenuModalOpen}
+        onClose={() => setIsMenuModalOpen(false)}
+        title={`Weekly Menu Configuration (Week ${weeklyMenu?.weekNumber || '—'})`}
+        className="max-w-2xl"
+      >
+        {menuLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-emerald-50/30 border border-emerald-100 p-4 rounded-2xl">
+              <div>
+                <h4 className="font-extrabold text-sm text-text-dark">Active Week Menu Actions</h4>
+                <p className="text-xs text-gray-500 mt-0.5">Print the active menu sheet or rotate the days for the next cycle.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => window.print()}
+                  variant="primary"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print Sheet
+                </Button>
+                <Button
+                  onClick={handleRotateMenu}
+                  disabled={isRotatingMenu}
+                  variant="outline"
+                  className="flex items-center gap-1.5 border-amber-600 text-amber-650 hover:bg-amber-50 px-3 py-1.5 text-xs font-black rounded-xl cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRotatingMenu ? 'animate-spin' : ''}`} />
+                  {isRotatingMenu ? 'Rotating...' : 'Rotate Week'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Printable Area */}
+            <div id="print-section" className="bg-white p-2 text-left">
+              {/* Print Header (Visible only when printing) */}
+              <div className="hidden print:block border-b-2 border-emerald-600 pb-4 mb-6">
+                <h1 className="text-2xl font-black text-emerald-600">HOME TIFFIN</h1>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1">Weekly Subscriber Meal Menu — Week {weeklyMenu?.weekNumber || 1}</p>
+              </div>
+
+              {weeklyMenu ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Breakfast Column */}
+                  <div className="border border-emerald-100/60 p-4 rounded-2xl bg-gray-50/20">
+                    <h5 className="font-black text-sm text-emerald-700 pb-2 border-b border-emerald-50 flex items-center gap-1.5">
+                      🍳 Breakfast Slot (7am - 11am)
+                    </h5>
+                    <div className="flex flex-col gap-3 mt-3">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
+                        <div key={day} className="text-xs">
+                          <span className="font-extrabold text-gray-400 block uppercase text-[10px] tracking-wider">{day}</span>
+                          <span className="font-bold text-text-dark mt-0.5 block">{weeklyMenu.breakfast[idx]?.name || 'Chef\'s Choice'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lunch Column */}
+                  <div className="border border-emerald-100/60 p-4 rounded-2xl bg-gray-50/20">
+                    <h5 className="font-black text-sm text-emerald-700 pb-2 border-b border-emerald-50 flex items-center gap-1.5">
+                      ☀️ Lunch Slot (12pm - 3pm)
+                    </h5>
+                    <div className="flex flex-col gap-3 mt-3">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
+                        <div key={day} className="text-xs">
+                          <span className="font-extrabold text-gray-400 block uppercase text-[10px] tracking-wider">{day}</span>
+                          <span className="font-bold text-text-dark mt-0.5 block">{weeklyMenu.lunch[idx]?.name || 'Chef\'s Choice'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dinner Column */}
+                  <div className="border border-emerald-100/60 p-4 rounded-2xl bg-gray-50/20">
+                    <h5 className="font-black text-sm text-emerald-700 pb-2 border-b border-emerald-50 flex items-center gap-1.5">
+                      🌙 Dinner Slot (7pm - 10pm)
+                    </h5>
+                    <div className="flex flex-col gap-3 mt-3">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, idx) => (
+                        <div key={day} className="text-xs">
+                          <span className="font-extrabold text-gray-400 block uppercase text-[10px] tracking-wider">{day}</span>
+                          <span className="font-bold text-text-dark mt-0.5 block">{weeklyMenu.dinner[idx]?.name || 'Chef\'s Choice'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-6">No menu details loaded.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Print Specific CSS Styles */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #print-section, #print-section * {
+            visibility: visible !important;
+          }
+          #print-section {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            padding: 20px !important;
+            background: white !important;
+            color: black !important;
+          }
+          /* Ensure grids render nicely on print */
+          #print-section .grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 20px !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
